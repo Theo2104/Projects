@@ -1,0 +1,19 @@
+.jigsaw-puzzle {
+    border: 4px solid grey;
+}
+
+.jigsaw-puzzle__piece {
+    border: 1px solid red;
+}
+
+.puzzle-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.jigsaw-puzzle {
+    width: 100%;
+    height: 100% !important;
+    position: relative;
+}

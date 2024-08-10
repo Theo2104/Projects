@@ -1,0 +1,394 @@
+{
+    "workspaces": [
+        {
+            "name": "admin",
+            "id": "9cb7b0a3-f9ba-4d0d-a0aa-996495a548e6",
+            "sceneId": "53a86996-31ec-413a-8e23-a33374a7e148"
+        },
+        {
+            "name": "room1",
+            "id": "5483a152-d640-4722-97a9-a3a25b850a25",
+            "sceneId": "c09593a1-24bb-4571-a788-bb03bc778b84"
+        },
+        {
+            "name": "room2",
+            "id": "476299d4-8d67-4c59-8e6c-e41b6cc9fec5",
+            "sceneId": "53a86996-31ec-413a-8e23-a33374a7e148"
+        },
+        {
+            "name": "room3",
+            "id": "9fda37fe-713a-473d-85e9-92c6c43b3186",
+            "sceneId": "1528fec6-e35e-405b-9ef2-c5990e150033"
+        }
+    ],
+    "scenes": [
+        {
+            "id": "1528fec6-e35e-405b-9ef2-c5990e150033",
+            "name": "Welcome",
+            "data": {
+                "store": {
+                    "document:document": {
+                        "gridSize": 10,
+                        "name": "",
+                        "meta": {},
+                        "id": "document:document",
+                        "typeName": "document"
+                    },
+                    "page:page": {
+                        "meta": {},
+                        "id": "page:page",
+                        "name": "Page 1",
+                        "index": "a1",
+                        "typeName": "page"
+                    },
+                    "shape:frfEhI8Ju62M2_oNB6R8H": {
+                        "x": -54.65580277389182,
+                        "y": -101.52059138572227,
+                        "rotation": 0,
+                        "isLocked": false,
+                        "opacity": 1,
+                        "meta": {},
+                        "id": "shape:frfEhI8Ju62M2_oNB6R8H",
+                        "type": "note",
+                        "parentId": "page:page",
+                        "index": "a6",
+                        "props": {
+                            "color": "black",
+                            "size": "m",
+                            "text": "Welcome!",
+                            "font": "draw",
+                            "align": "middle",
+                            "verticalAlign": "middle",
+                            "growY": 0,
+                            "fontSizeAdjustment": 22,
+                            "url": ""
+                        },
+                        "typeName": "shape"
+                    }
+                },
+                "schema": {
+                    "schemaVersion": 2,
+                    "sequences": {
+                        "com.tldraw.store": 4,
+                        "com.tldraw.asset": 1,
+                        "com.tldraw.camera": 1,
+                        "com.tldraw.document": 2,
+                        "com.tldraw.instance": 24,
+                        "com.tldraw.instance_page_state": 5,
+                        "com.tldraw.page": 1,
+                        "com.tldraw.instance_presence": 5,
+                        "com.tldraw.pointer": 1,
+                        "com.tldraw.shape": 4,
+                        "com.tldraw.asset.bookmark": 1,
+                        "com.tldraw.asset.image": 3,
+                        "com.tldraw.asset.video": 3,
+                        "com.tldraw.shape.group": 0,
+                        "com.tldraw.shape.text": 1,
+                        "com.tldraw.shape.bookmark": 2,
+                        "com.tldraw.shape.draw": 1,
+                        "com.tldraw.shape.geo": 8,
+                        "com.tldraw.shape.note": 6,
+                        "com.tldraw.shape.line": 4,
+                        "com.tldraw.shape.frame": 0,
+                        "com.tldraw.shape.arrow": 3,
+                        "com.tldraw.shape.highlight": 0,
+                        "com.tldraw.shape.embed": 4,
+                        "com.tldraw.shape.image": 3,
+                        "com.tldraw.shape.video": 2,
+                        "com.tldraw.shape.my-interactive-shape": 0,
+                        "com.tldraw.shape.card": 0
+                    }
+                }
+            }
+        },
+        {
+            "id": "39a738b7-b5c1-4054-99de-fc2b178c4924",
+            "name": "Szenario1",
+            "data": {
+                "store": {
+                    "document:document": {
+                        "gridSize": 10,
+                        "name": "",
+                        "meta": {},
+                        "id": "document:document",
+                        "typeName": "document"
+                    },
+                    "page:page": {
+                        "meta": {},
+                        "id": "page:page",
+                        "name": "Page 1",
+                        "index": "a1",
+                        "typeName": "page"
+                    },
+                    "shape:odOl_Csir4ZlMySVkPEqs": {
+                        "x": -595.1519165039062,
+                        "y": -435.4253845214844,
+                        "rotation": 0,
+                        "isLocked": false,
+                        "opacity": 1,
+                        "meta": {
+                            "cardType": "puzzle"
+                        },
+                        "id": "shape:odOl_Csir4ZlMySVkPEqs",
+                        "type": "card",
+                        "parentId": "page:page",
+                        "index": "a1",
+                        "props": {
+                            "w": 1200,
+                            "h": 800,
+                            "color": "black"
+                        },
+                        "typeName": "shape"
+                    },
+                    "shape:bJ_BJcJxQZG_jV-6UO1YQ": {
+                        "x": 387.3440856933594,
+                        "y": 165.63976013183634,
+                        "rotation": 0,
+                        "isLocked": false,
+                        "opacity": 1,
+                        "meta": {
+                            "cardType": "log"
+                        },
+                        "id": "shape:bJ_BJcJxQZG_jV-6UO1YQ",
+                        "type": "card",
+                        "parentId": "page:page",
+                        "index": "a3",
+                        "props": {
+                            "w": 300,
+                            "h": 300,
+                            "color": "black"
+                        },
+                        "typeName": "shape"
+                    }
+                },
+                "schema": {
+                    "schemaVersion": 2,
+                    "sequences": {
+                        "com.tldraw.store": 4,
+                        "com.tldraw.asset": 1,
+                        "com.tldraw.camera": 1,
+                        "com.tldraw.document": 2,
+                        "com.tldraw.instance": 24,
+                        "com.tldraw.instance_page_state": 5,
+                        "com.tldraw.page": 1,
+                        "com.tldraw.instance_presence": 5,
+                        "com.tldraw.pointer": 1,
+                        "com.tldraw.shape": 4,
+                        "com.tldraw.asset.bookmark": 1,
+                        "com.tldraw.asset.image": 3,
+                        "com.tldraw.asset.video": 3,
+                        "com.tldraw.shape.group": 0,
+                        "com.tldraw.shape.text": 1,
+                        "com.tldraw.shape.bookmark": 2,
+                        "com.tldraw.shape.draw": 1,
+                        "com.tldraw.shape.geo": 8,
+                        "com.tldraw.shape.note": 6,
+                        "com.tldraw.shape.line": 4,
+                        "com.tldraw.shape.frame": 0,
+                        "com.tldraw.shape.arrow": 3,
+                        "com.tldraw.shape.highlight": 0,
+                        "com.tldraw.shape.embed": 4,
+                        "com.tldraw.shape.image": 3,
+                        "com.tldraw.shape.video": 2,
+                        "com.tldraw.shape.my-interactive-shape": 0,
+                        "com.tldraw.shape.card": 0
+                    }
+                }
+            }
+        },
+        {
+            "name": "Szenario2",
+            "data": {
+                "store": {
+                    "document:document": {
+                        "gridSize": 10,
+                        "name": "",
+                        "meta": {},
+                        "id": "document:document",
+                        "typeName": "document"
+                    },
+                    "page:page": {
+                        "meta": {},
+                        "id": "page:page",
+                        "name": "Page 1",
+                        "index": "a1",
+                        "typeName": "page"
+                    },
+                    "shape:aK7LOgbfCDQSrYZ4biOw8": {
+                        "x": -461.27769586053,
+                        "y": -420.3135818400259,
+                        "rotation": 0,
+                        "isLocked": false,
+                        "opacity": 1,
+                        "meta": {
+                            "cardType": "gridgame"
+                        },
+                        "id": "shape:aK7LOgbfCDQSrYZ4biOw8",
+                        "type": "card",
+                        "props": {
+                            "w": 883.0305786132812,
+                            "h": 756.6339489746099,
+                            "color": "black"
+                        },
+                        "parentId": "page:page",
+                        "index": "a1",
+                        "typeName": "shape"
+                    }
+                },
+                "schema": {
+                    "schemaVersion": 2,
+                    "sequences": {
+                        "com.tldraw.store": 4,
+                        "com.tldraw.asset": 1,
+                        "com.tldraw.camera": 1,
+                        "com.tldraw.document": 2,
+                        "com.tldraw.instance": 24,
+                        "com.tldraw.instance_page_state": 5,
+                        "com.tldraw.page": 1,
+                        "com.tldraw.instance_presence": 5,
+                        "com.tldraw.pointer": 1,
+                        "com.tldraw.shape": 4,
+                        "com.tldraw.asset.bookmark": 1,
+                        "com.tldraw.asset.image": 3,
+                        "com.tldraw.asset.video": 3,
+                        "com.tldraw.shape.group": 0,
+                        "com.tldraw.shape.text": 1,
+                        "com.tldraw.shape.bookmark": 2,
+                        "com.tldraw.shape.draw": 1,
+                        "com.tldraw.shape.geo": 8,
+                        "com.tldraw.shape.note": 6,
+                        "com.tldraw.shape.line": 4,
+                        "com.tldraw.shape.frame": 0,
+                        "com.tldraw.shape.arrow": 3,
+                        "com.tldraw.shape.highlight": 0,
+                        "com.tldraw.shape.embed": 4,
+                        "com.tldraw.shape.image": 3,
+                        "com.tldraw.shape.video": 2,
+                        "com.tldraw.shape.my-interactive-shape": 0,
+                        "com.tldraw.shape.card": 0
+                    }
+                }
+            },
+            "id": "53a86996-31ec-413a-8e23-a33374a7e148"
+        },
+        {
+            "name": "Szenario3",
+            "data": {
+                "store": {
+                    "document:document": {
+                        "gridSize": 10,
+                        "name": "",
+                        "meta": {},
+                        "id": "document:document",
+                        "typeName": "document"
+                    },
+                    "page:page": {
+                        "meta": {},
+                        "id": "page:page",
+                        "name": "Page 1",
+                        "index": "a1",
+                        "typeName": "page"
+                    },
+                    "shape:SOMAw_XVrsbPL7YMyAQ3O": {
+                        "x": 191.88,
+                        "y": 240.61,
+                        "rotation": 0,
+                        "isLocked": false,
+                        "opacity": 1,
+                        "meta": {},
+                        "id": "shape:SOMAw_XVrsbPL7YMyAQ3O",
+                        "type": "draw",
+                        "props": {
+                            "segments": [
+                                {
+                                    "type": "free",
+                                    "points": [
+                                        {
+                                            "x": 0,
+                                            "y": 0,
+                                            "z": 0.5
+                                        }
+                                    ]
+                                },
+                                {
+                                    "type": "free",
+                                    "points": [
+                                        {
+                                            "x": 0,
+                                            "y": 0,
+                                            "z": 0.5
+                                        }
+                                    ]
+                                }
+                            ],
+                            "color": "black",
+                            "fill": "none",
+                            "dash": "draw",
+                            "size": "m",
+                            "isComplete": true,
+                            "isClosed": false,
+                            "isPen": false
+                        },
+                        "parentId": "page:page",
+                        "index": "a5",
+                        "typeName": "shape"
+                    },
+                    "shape:EuLco5KYOe4oX9EtCFnGd": {
+                        "x": -638.1293792724609,
+                        "y": -456.4930648803711,
+                        "rotation": 0,
+                        "isLocked": false,
+                        "opacity": 1,
+                        "meta": {
+                            "cardType": "mindmap"
+                        },
+                        "id": "shape:EuLco5KYOe4oX9EtCFnGd",
+                        "type": "card",
+                        "props": {
+                            "w": 1289.05322265625,
+                            "h": 692.8298568725586,
+                            "color": "black"
+                        },
+                        "parentId": "page:page",
+                        "index": "a6",
+                        "typeName": "shape"
+                    }
+                },
+                "schema": {
+                    "schemaVersion": 2,
+                    "sequences": {
+                        "com.tldraw.store": 4,
+                        "com.tldraw.asset": 1,
+                        "com.tldraw.camera": 1,
+                        "com.tldraw.document": 2,
+                        "com.tldraw.instance": 24,
+                        "com.tldraw.instance_page_state": 5,
+                        "com.tldraw.page": 1,
+                        "com.tldraw.instance_presence": 5,
+                        "com.tldraw.pointer": 1,
+                        "com.tldraw.shape": 4,
+                        "com.tldraw.asset.bookmark": 1,
+                        "com.tldraw.asset.image": 3,
+                        "com.tldraw.asset.video": 3,
+                        "com.tldraw.shape.group": 0,
+                        "com.tldraw.shape.text": 1,
+                        "com.tldraw.shape.bookmark": 2,
+                        "com.tldraw.shape.draw": 1,
+                        "com.tldraw.shape.geo": 8,
+                        "com.tldraw.shape.note": 6,
+                        "com.tldraw.shape.line": 4,
+                        "com.tldraw.shape.frame": 0,
+                        "com.tldraw.shape.arrow": 3,
+                        "com.tldraw.shape.highlight": 0,
+                        "com.tldraw.shape.embed": 4,
+                        "com.tldraw.shape.image": 3,
+                        "com.tldraw.shape.video": 2,
+                        "com.tldraw.shape.my-interactive-shape": 0,
+                        "com.tldraw.shape.card": 0
+                    }
+                }
+            },
+            "id": "c09593a1-24bb-4571-a788-bb03bc778b84"
+        }
+    ]
+}

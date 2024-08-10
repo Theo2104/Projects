@@ -1,0 +1,39 @@
+ .custom-button.text-white {
+ 	color: white;
+ }
+
+ .custom-button.bg-black {
+ 	background-color: black;
+ }
+
+ .custom-button.bg-red-500 {
+ 	background-color: #e53e3e;
+ }
+
+ .custom-toggle {
+ 	transition: background-color 0.3s ease;
+	margin-top: 16px;
+ }
+
+ .custom-toggle:hover {
+ 	opacity: 0.8;
+ }
+
+ .bg-green-400 {
+ 	background-color: #028b00cf;
+ }
+
+ .plus-sign {
+	font-size: 20px;
+	width: 48px;
+	height: 48px;
+	border-radius: 16rem !important;
+	align-items: center;
+	justify-content: center;
+	margin-top: 16px;
+  }
+  
+  .button-text {
+	text-decoration: underline;
+	color: inherit;
+  }

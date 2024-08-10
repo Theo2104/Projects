@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "paths": {
+      "*": ["types/*"] // Ermöglicht Import von Typdefinitionen aus "types/"
+    }
+  },
+  "include": [
+    "src/**/*",
+    "types/**/*"
+  ]
+}

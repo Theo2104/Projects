@@ -1,0 +1,127 @@
+.gridGameContainer {
+  display: grid;
+  grid-template-columns: repeat(var(--grid-columns, 10), var(--cell-width));
+  grid-template-rows: repeat(var(--grid-rows, 10), var(--cell-height));
+  gap: 2px;
+  border: 2px solid #333;
+  margin-top: 8px;
+  overflow: auto;
+}
+
+.gridCell {
+  background-color: lightgrey;
+  border: 1px solid black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  width: var(--cell-width);
+  height: var(--cell-height);
+}
+
+.gridCell.active {
+  background-color: green;
+}
+
+.gridCell.activeOrange {
+  background-color: orange;
+}
+
+.gridCell.wrong {
+  background-color: #f44336;
+}
+
+.gridCell:hover {
+  opacity: 0.7;
+}
+
+.gridGameHeader button,
+.gameOverOverlay button {
+  position: relative;
+  z-index: 1;
+}
+
+.startGameContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.startGameContainer button {
+  margin-bottom: 20px;
+  padding: 10px 20px;
+  font-size: 1.2rem;
+  background-color: #090909;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.difficulty {
+  margin-top: 20px;
+}
+
+.difficulty select {
+  padding: 10px 20px;
+  font-size: 1.2rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.difficulty select:hover,
+.difficulty select:focus {
+  border-color: #4CAF50;
+}
+
+.difficulty h1 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.distractionButton {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  z-index: 2;
+}
+
+.scoreInfo {
+  display: flex;
+  gap: 16px;
+}
+
+.statsModal {
+  position: absolute;
+  top: 0;
+  right: 32px;
+}
+
+.grid-button {
+  cursor: pointer;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  outline: none;
+  transition: background-color 0.3s ease;
+  margin-top: 8px;
+  margin-right: 16px;
+}

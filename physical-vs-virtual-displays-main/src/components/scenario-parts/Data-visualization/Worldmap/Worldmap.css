@@ -1,0 +1,10 @@
+.world__tooltip {
+    position: absolute;
+    background-color: white;
+    border: solid 1px #ccc;
+    border-radius: 5px;
+    padding: 10px;
+    display: none;
+    pointer-events: none;
+  }
+  

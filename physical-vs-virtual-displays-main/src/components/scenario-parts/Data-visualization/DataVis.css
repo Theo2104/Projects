@@ -1,0 +1,54 @@
+.DataVis {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .deselectButton {
+    margin: 20px;
+    padding: 10px 20px;
+    background-color: #ff5f5f;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .deselectButton:hover {
+    background-color: #ff1f1f;
+  }
+  
+  .charts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+  }
+  
+  .row {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+  }
+  
+  .chart {
+    flex: 1;
+    border: 1px solid #ddd;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .radarchart-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    height: 100%;
+    color: #555;
+  }
+  
