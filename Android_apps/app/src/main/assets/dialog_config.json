@@ -1,0 +1,19 @@
+{
+  "GREETING": {
+    "text": "Hallo! Wie ist dein Name?",
+    "nextState": "ASKING_NAME"
+  },
+  "ASKING_NAME": {
+    "text": "Schön, dich kennenzulernen, {name}. Wie geht es dir heute?",
+    "nextState": "ASKING_MOOD"
+  },
+  "ASKING_MOOD": {
+    "text": "Das freut mich zu hören! Gibt es sonst noch etwas, bei dem ich dir helfen kann?",
+    "nextState": "GOODBYE",
+    "fallback": "Oh, das tut mir leid zu hören. Kann ich dir irgendwie helfen?"
+  },
+  "GOODBYE": {
+    "text": "Vielen Dank für das Gespräch, {name}. Bis zum nächsten Mal!",
+    "nextState": "GREETING"
+  }
+}
