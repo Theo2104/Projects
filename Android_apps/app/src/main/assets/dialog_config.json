@@ -12,6 +12,10 @@
     "nextState": "GOODBYE",
     "fallback": "Oh, das tut mir leid zu hören. Kann ich dir irgendwie helfen?"
   },
+  "HELP": {
+    "text": "Ich kann dir bei verschiedenen Dingen helfen, zum Beispiel dir das Wetter sagen oder eine Erinnerung setzen.",
+    "nextState": "GREETING"
+  },
   "GOODBYE": {
     "text": "Vielen Dank für das Gespräch, {name}. Bis zum nächsten Mal!",
     "nextState": "GREETING"

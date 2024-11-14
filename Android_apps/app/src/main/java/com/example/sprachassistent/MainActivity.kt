@@ -32,12 +32,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var textToSpeech: TextToSpeech
 
     private var dialogState = "GREETING"
-    private var previousQuestion: String? = null
     private lateinit var dialogConfig: Map<String, Dialog>
+    private val userData = mutableMapOf<String, String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Berechtigung anfordern
         val requestPermissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted: Boolean ->
@@ -47,6 +48,7 @@ class MainActivity : ComponentActivity() {
         }
         requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
+        // Initialisiere Spracherkennung und Text-to-Speech
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -54,7 +56,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        dialogConfig = loadDialogConfig() // Lade die Dialogkonfiguration
+        // Lade Dialogkonfiguration aus JSON
+        dialogConfig = loadDialogConfig()
 
         setContent {
             SprachassistentTheme {
@@ -95,15 +98,28 @@ class MainActivity : ComponentActivity() {
 
         speechRecognizer.startListening(intent)
     }
-    private var name: String? = null
+
+    // Intent-Erkennung anhand von Schlüsselwörtern
+    private fun detectIntent(spokenText: String): String {
+        return when {
+            spokenText.contains("wie geht", ignoreCase = true) -> "ASKING_MOOD"
+            spokenText.contains("Hilfe", ignoreCase = true) -> "HELP"
+            spokenText.contains("danke", ignoreCase = true) -> "GOODBYE"
+            else -> dialogState // Standardmäßig aktuellen Zustand beibehalten
+        }
+    }
+
     private fun handleDialog(spokenText: String) {
+        // Erkennen des Intents und Einstellen des neuen Dialogzustands
+        dialogState = detectIntent(spokenText)
+
         val dialog = dialogConfig[dialogState] ?: return
         var response = dialog.text
 
+        // Platzhalter und Benutzereingaben dynamisch verwalten
         when (dialogState) {
             "ASKING_NAME" -> {
-                // Speichern des Namens, wenn nach dem Namen gefragt wird
-                name = spokenText
+                saveUserData("name", spokenText)
                 response = response.replace("{name}", spokenText)
             }
             "ASKING_MOOD" -> {
@@ -113,17 +129,32 @@ class MainActivity : ComponentActivity() {
                     dialog.fallback ?: dialog.text
                 }
             }
+            "HELP" -> {
+                response = "Ich kann dir bei verschiedenen Dingen helfen. Frage einfach los!"
+                dialogState = "GREETING" // Zurück zur Begrüßung
+            }
             "GOODBYE" -> {
-                // Ersetze {name} in der Antwort mit dem gespeicherten Namen
-                response = response.replace("{name}", name ?: "Freund")
+                response = response.replace("{name}", getUserData("name") ?: "Freund")
             }
         }
 
-        // Sprechen der Antwort
+        // Antwort ausgeben
         textToSpeech.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
-        dialogState = dialog.nextState // Nächsten Zustand setzen
+
+        // Nächsten Zustand festlegen
+        dialogState = dialog.nextState
     }
 
+    // Benutzerdaten in einer Map speichern und abrufen
+    private fun saveUserData(key: String, value: String) {
+        userData[key] = value
+    }
+
+    private fun getUserData(key: String): String? {
+        return userData[key]
+    }
+
+    // Dialogkonfiguration aus JSON laden
     private fun loadDialogConfig(): Map<String, Dialog> {
         val inputStream: InputStream = assets.open("dialog_config.json")
         val json = inputStream.bufferedReader().use { it.readText() }
@@ -160,7 +191,6 @@ fun Greeting(modifier: Modifier = Modifier, onButtonClick: () -> Unit) {
         Text(text = "Sprich mit mir!")
     }
 }
-
 
 @Preview(showBackground = true)
 @Composable
