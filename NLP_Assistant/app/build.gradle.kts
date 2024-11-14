@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.sprachassistent"
-    compileSdk = 34
+    namespace = "com.example.nlp_assistant"
+    compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.sprachassistent"
+        applicationId = "com.example.nlp_assistant"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
@@ -56,5 +56,7 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
+    implementation(libs.converter.gson)
 }
