@@ -11,42 +11,33 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.nlp_assistant.ui.theme.NLP_AssistantTheme
-import java.util.Locale
+import com.example.nlp_assistant.api.createRetrofitClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import com.example.nlp_assistant.api.createRetrofitClient
-import androidx.compose.runtime.Composable
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var textToSpeech: TextToSpeech
 
-    // State to hold the spoken text and the assistant's response
     private val spokenText = mutableStateOf("")
     private val assistantResponse = mutableStateOf("")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Request permission to use the microphone
+        // Mikrofon-Berechtigung anfordern
         val requestPermissionLauncher = registerForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted: Boolean ->
@@ -56,7 +47,7 @@ class MainActivity : ComponentActivity() {
         }
         requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
-        // Initialize Speech Recognition and Text-to-Speech
+        // Initialisiere Spracherkennung und Text-to-Speech
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -78,7 +69,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Start speech recognition and listen to the user's speech
+    // Startet die Spracherkennung
     private fun startListening() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -108,33 +99,42 @@ class MainActivity : ComponentActivity() {
         speechRecognizer.startListening(intent)
     }
 
-    // Process user input and send it to Hugging Face API for NLP processing
+    // Sendet die Benutzereingabe an die Hugging Face API
     private fun processUserInput(input: String) {
         val apiService = createRetrofitClient()
 
-        // Request-Body mit Benutzereingabe
-        val requestBody = mapOf("inputs" to input)
+        // Request-Body mit Benutzer-Eingabe
+        val requestBody = mapOf("inputs" to "Benutzer: $input\nAssistent:")
 
         val call = apiService.getModelResponse(requestBody)
-        call.enqueue(object : Callback<Map<String, Any>> {
-            override fun onResponse(call: Call<Map<String, Any>>, response: Response<Map<String, Any>>) {
+        call.enqueue(object : Callback<List<Map<String, Any>>> {
+            override fun onResponse(call: Call<List<Map<String, Any>>>, response: Response<List<Map<String, Any>>>) {
                 if (response.isSuccessful) {
                     val modelResponse = response.body()
-                    val generatedText = modelResponse?.get("generated_text") as? String ?: "Keine Antwort erhalten"
-                    assistantResponse.value = generatedText
-                    textToSpeech.speak(generatedText, TextToSpeech.QUEUE_FLUSH, null, null)
+                    if (modelResponse != null) {
+                        val generatedText = modelResponse.firstOrNull()?.get("generated_text") as? String
+                            ?: "Keine Antwort erhalten"
+                        assistantResponse.value = generatedText
+                        textToSpeech.speak(generatedText, TextToSpeech.QUEUE_FLUSH, null, null)
+                    } else {
+                        assistantResponse.value = "Antwort war leer."
+                        textToSpeech.speak("Antwort war leer.", TextToSpeech.QUEUE_FLUSH, null, null)
+                    }
                 } else {
-                    assistantResponse.value = "Fehler bei der Verarbeitung der Anfrage."
+                    val errorBody = response.errorBody()?.string() ?: "Keine Fehlerbeschreibung"
+                    assistantResponse.value = "API-Fehler: ${response.code()} - $errorBody"
                     textToSpeech.speak("Fehler bei der Verarbeitung der Anfrage.", TextToSpeech.QUEUE_FLUSH, null, null)
                 }
             }
 
-            override fun onFailure(call: Call<Map<String, Any>>, t: Throwable) {
+            override fun onFailure(call: Call<List<Map<String, Any>>>, t: Throwable) {
                 assistantResponse.value = "Fehler bei der API-Anfrage: ${t.message}"
                 textToSpeech.speak("Fehler bei der API-Anfrage.", TextToSpeech.QUEUE_FLUSH, null, null)
             }
         })
     }
+
+
 
     override fun onDestroy() {
         super.onDestroy()
@@ -150,38 +150,19 @@ fun Greeting(
     modifier: Modifier = Modifier,
     onButtonClick: () -> Unit
 ) {
-    // Column für vertikale Anordnung
-    Column(
-        modifier = modifier.padding(16.dp) // Padding für den gesamten Inhalt
-    ) {
-        // Button, der beim Klicken die Methode `onButtonClick` ausführt
+    Column(modifier = modifier.padding(16.dp)) {
         Button(
             onClick = { onButtonClick() },
-            modifier = Modifier.fillMaxWidth() // Button auf volle Breite
+            modifier = Modifier.fillMaxWidth()
         ) {
             Text(text = "Sprich mit mir!")
         }
-
-        // Abstand zwischen Button und Text
-        Spacer(modifier = Modifier.height(16.dp)) // Abstand zwischen Button und den Texten
-
-        // Text für die gesprochene Eingabe
-        Text(
-            text = "Du hast gesagt: $spokenText",
-            modifier = Modifier.padding(top = 8.dp) // Zusätzlicher Abstand zum nächsten Text
-        )
-
-        // Abstand zwischen den Texten
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = "Du hast gesagt: $spokenText", modifier = Modifier.padding(top = 8.dp))
         Spacer(modifier = Modifier.height(8.dp))
-
-        // Text für die Antwort des Assistenten
-        Text(
-            text = "Assistent Antwort: $assistantResponse",
-            modifier = Modifier.padding(top = 8.dp) // Zusätzlicher Abstand zum vorherigen Text
-        )
+        Text(text = "Assistent Antwort: $assistantResponse", modifier = Modifier.padding(top = 8.dp))
     }
 }
-
 
 @Preview(showBackground = true)
 @Composable
@@ -190,7 +171,7 @@ fun GreetingPreview() {
         Greeting(
             spokenText = "Hallo",
             assistantResponse = "Wie kann ich helfen?",
-            onButtonClick = { /* Leere Lambda oder eine Aktion */ }
+            onButtonClick = {}
         )
     }
 }
