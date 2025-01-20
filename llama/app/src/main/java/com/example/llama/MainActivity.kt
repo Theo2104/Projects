@@ -104,12 +104,11 @@ class MainActivity : ComponentActivity() {
         val requestBody = mapOf("inputs" to input)
 
         val call = apiService.getModelResponse(requestBody)
-        call.enqueue(object : Callback<Map<String, Any>> { // Hier wurde Map<String, Any> statt Map<String, String> verwendet
-            override fun onResponse(call: Call<Map<String, Any>>, response: Response<Map<String, Any>>) {
+        call.enqueue(object : Callback<List<Map<String, String>>> {
+            override fun onResponse(call: Call<List<Map<String, String>>>, response: Response<List<Map<String, String>>>) {
                 if (response.isSuccessful) {
-                    val modelResponse = response.body()
-                    // Extrahiere den generierten Text, der möglicherweise nicht direkt als String vorliegt
-                    val generatedText = modelResponse?.get("generated_text") as? String ?: "Keine Antwort erhalten"
+                    val modelResponse = response.body()?.get(0)
+                    val generatedText = modelResponse?.get("generated_text") ?: "Keine Antwort erhalten"
                     assistantResponse.value = generatedText
                     textToSpeech.speak(generatedText, TextToSpeech.QUEUE_FLUSH, null, null)
                 } else {
@@ -117,7 +116,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            override fun onFailure(call: Call<Map<String, Any>>, t: Throwable) {
+            override fun onFailure(call: Call<List<Map<String, String>>>, t: Throwable) {
                 assistantResponse.value = "Fehler bei der API-Anfrage: ${t.message}"
             }
         })

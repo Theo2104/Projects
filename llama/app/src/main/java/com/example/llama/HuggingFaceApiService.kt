@@ -11,6 +11,6 @@ interface HuggingFaceApiService {
         "Authorization: Bearer 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",
         "Content-Type: application/json"
     )
-    @POST("/models/meta-llama/Llama-3.2-1B") // Ersetze durch das gewünschte Modell
-    fun getModelResponse(@Body requestBody: Map<String, String>): Call<Map<String, String>>
+    @POST("/models/meta-llama/Llama-3.3-70B-Instruct") // Ersetze durch das gewünschte Modell
+    fun getModelResponse(@Body requestBody: Map<String, String>): Call<List<Map<String, String>>>
 }
