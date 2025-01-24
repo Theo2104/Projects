@@ -4,18 +4,46 @@ import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.security.cert.X509Certificate
+import javax.net.ssl.*
 
-fun createRetrofitClient(): HuggingFaceApiService {
-    val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS) // Erhöhe die Verbindungs-Timeouts auf 60 Sekunden
-        .writeTimeout(60, TimeUnit.SECONDS)   // Erhöhe die Schreib-Timeouts auf 60 Sekunden
-        .readTimeout(60, TimeUnit.SECONDS)    // Erhöhe die Lese-Timeouts auf 60 Sekunden
-        .build()
+fun createUnsafeOkHttpClient(): OkHttpClient {
+    return try {
+        // Vertrauenswürdiger Manager, der alle Zertifikate akzeptiert
+        val trustAllCerts = arrayOf<TrustManager>(
+            object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+                override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+                override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+            }
+        )
+
+        // SSL-Kontext mit dem vertrauenswürdigen Manager initialisieren
+        val sslContext = SSLContext.getInstance("SSL")
+        sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+
+        // Unsicheres SocketFactory setzen
+        val sslSocketFactory = sslContext.socketFactory
+
+        OkHttpClient.Builder()
+            .sslSocketFactory(sslSocketFactory, trustAllCerts[0] as X509TrustManager)
+            .hostnameVerifier { _, _ -> true } // Hostnamenprüfung überspringen
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+    } catch (e: Exception) {
+        throw RuntimeException(e)
+    }
+}
+
+fun createRetrofitClient(): FlaskApiService {
+    val okHttpClient = createUnsafeOkHttpClient()
     val retrofit = Retrofit.Builder()
-        .baseUrl("https://api-inference.huggingface.co") // Basis-URL der Hugging Face API
+        .baseUrl("https://192.168.2.106:5000/")
         .addConverterFactory(GsonConverterFactory.create())
         .client(okHttpClient)
         .build()
 
-    return retrofit.create(HuggingFaceApiService::class.java)
+    return retrofit.create(FlaskApiService::class.java)
 }

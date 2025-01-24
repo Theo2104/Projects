@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                textToSpeech.language = Locale.ENGLISH
+                textToSpeech.language = Locale.GERMAN
             }
         }
 
@@ -72,7 +72,7 @@ class MainActivity : ComponentActivity() {
     private fun startListening() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.ENGLISH)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.GERMAN)
         }
 
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
@@ -101,14 +101,13 @@ class MainActivity : ComponentActivity() {
     private fun processUserInput(input: String) {
         val apiService = createRetrofitClient()
 
-        val requestBody = mapOf("inputs" to input)
+        val requestBody = mapOf("input" to input)
 
         val call = apiService.getModelResponse(requestBody)
-        call.enqueue(object : Callback<List<Map<String, String>>> {
-            override fun onResponse(call: Call<List<Map<String, String>>>, response: Response<List<Map<String, String>>>) {
+        call.enqueue(object : Callback<Map<String, String>> {
+            override fun onResponse(call: Call<Map<String, String>>, response: Response<Map<String, String>>) {
                 if (response.isSuccessful) {
-                    val modelResponse = response.body()?.get(0)
-                    val generatedText = modelResponse?.get("generated_text") ?: "Keine Antwort erhalten"
+                    val generatedText = response.body()?.get("response") ?: "Keine Antwort erhalten"
                     assistantResponse.value = generatedText
                     textToSpeech.speak(generatedText, TextToSpeech.QUEUE_FLUSH, null, null)
                 } else {
@@ -116,7 +115,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            override fun onFailure(call: Call<List<Map<String, String>>>, t: Throwable) {
+            override fun onFailure(call: Call<Map<String, String>>, t: Throwable) {
                 assistantResponse.value = "Fehler bei der API-Anfrage: ${t.message}"
             }
         })
