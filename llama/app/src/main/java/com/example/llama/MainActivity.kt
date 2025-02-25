@@ -1,7 +1,9 @@
 package com.example.llama
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -12,16 +14,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.llama.ui.theme.LlamaTheme
 import com.example.llama.api.createRetrofitClient
+import com.example.llama.ui.theme.LlamaTheme
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -31,11 +34,19 @@ class MainActivity : ComponentActivity() {
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var textToSpeech: TextToSpeech
 
+
     private val spokenText = mutableStateOf("")
     private val assistantResponse = mutableStateOf("")
+    private val showSettingsDialog = mutableStateOf(false)
+
+    // TTS-Parameter (Standardwerte)
+    private var ttsPitch by mutableStateOf(1.0f)
+    private var ttsSpeed by mutableStateOf(1.0f)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+
 
         // Mikrofonberechtigung anfordern
         val requestPermissionLauncher = registerForActivityResult(
@@ -47,24 +58,37 @@ class MainActivity : ComponentActivity() {
         }
         requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
-        // Sprach- und Text-to-Speech-Initialisierung
+        // Sprach- und TTS-Initialisierung
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         textToSpeech = TextToSpeech(this) { status ->
             if (status == TextToSpeech.SUCCESS) {
                 textToSpeech.language = Locale.GERMAN
+                textToSpeech.setPitch(ttsPitch)
+                textToSpeech.setSpeechRate(ttsSpeed)
             }
         }
 
         setContent {
             LlamaTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        spokenText = spokenText.value,
-                        assistantResponse = assistantResponse.value,
-                        modifier = Modifier.padding(innerPadding),
-                        onButtonClick = { startListening() }
-                    )
-                }
+                MainScreen(
+                    spokenText = spokenText.value,
+                    assistantResponse = assistantResponse.value,
+                    onListenClick = { startListening() },
+                    onRepeatClick = { repeatResponse() },
+                    onSettingsClick = { showSettingsDialog.value = true },
+                    showSettingsDialog = showSettingsDialog.value,
+                    onDismissSettings = { showSettingsDialog.value = false },
+                    ttsPitch = ttsPitch,
+                    ttsSpeed = ttsSpeed,
+                    onTtsPitchChange = { newPitch ->
+                        ttsPitch = newPitch
+                        textToSpeech.setPitch(ttsPitch)
+                    },
+                    onTtsSpeedChange = { newSpeed ->
+                        ttsSpeed = newSpeed
+                        textToSpeech.setSpeechRate(ttsSpeed)
+                    }
+                )
             }
         }
     }
@@ -78,8 +102,12 @@ class MainActivity : ComponentActivity() {
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
                 val resultsList = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                spokenText.value = resultsList?.get(0) ?: ""
-                processUserInput(spokenText.value)
+                val recognizedText = resultsList?.get(0) ?: ""
+                spokenText.value = recognizedText
+
+
+
+                processUserInput(recognizedText)
             }
 
             override fun onError(error: Int) {
@@ -100,16 +128,14 @@ class MainActivity : ComponentActivity() {
 
     private fun processUserInput(input: String) {
         val apiService = createRetrofitClient()
-
         val requestBody = mapOf("input" to input)
-
         val call = apiService.getModelResponse(requestBody)
         call.enqueue(object : Callback<Map<String, String>> {
             override fun onResponse(call: Call<Map<String, String>>, response: Response<Map<String, String>>) {
                 if (response.isSuccessful) {
                     val generatedText = response.body()?.get("response") ?: "Keine Antwort erhalten"
                     assistantResponse.value = generatedText
-                    textToSpeech.speak(generatedText, TextToSpeech.QUEUE_FLUSH, null, null)
+                    speakResponse(generatedText)
                 } else {
                     assistantResponse.value = "API-Fehler: ${response.code()}"
                 }
@@ -121,6 +147,17 @@ class MainActivity : ComponentActivity() {
         })
     }
 
+    private fun speakResponse(response: String) {
+        textToSpeech.speak(response, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+
+    // Wiederholt die letzte Antwort
+    private fun repeatResponse() {
+        if (assistantResponse.value.isNotEmpty()) {
+            speakResponse(assistantResponse.value)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         speechRecognizer.destroy()
@@ -129,27 +166,98 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(
+fun MainScreen(
     spokenText: String,
     assistantResponse: String,
-    modifier: Modifier = Modifier,
-    onButtonClick: () -> Unit
+    onListenClick: () -> Unit,
+    onRepeatClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    showSettingsDialog: Boolean,
+    onDismissSettings: () -> Unit,
+    ttsPitch: Float,
+    ttsSpeed: Float,
+    onTtsPitchChange: (Float) -> Unit,
+    onTtsSpeedChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.padding(16.dp)) {
-        Button(onClick = onButtonClick, modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = modifier
+        .fillMaxSize()
+        .padding(16.dp)) {
+        // Button zum Starten der Spracheingabe
+        Button(
+            onClick = onListenClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text(text = "Sprich mit mir!")
         }
         Spacer(modifier = Modifier.height(16.dp))
+        // Anzeige des gesagten Textes
         Text(text = "Du hast gesagt: $spokenText")
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+        // Anzeige der Antwort des Assistenten
         Text(text = "Assistent Antwort: $assistantResponse")
+        Spacer(modifier = Modifier.height(16.dp))
+        // Button, um die Antwort zu wiederholen
+        Button(
+            onClick = onRepeatClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(text = "Antwort wiederholen")
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        // Button, um in die Einstellungen zu gelangen
+        Button(
+            onClick = onSettingsClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(text = "Einstellungen")
+        }
+    }
+
+    if (showSettingsDialog) {
+        SettingsDialog(
+            ttsPitch = ttsPitch,
+            ttsSpeed = ttsSpeed,
+            onTtsPitchChange = onTtsPitchChange,
+            onTtsSpeedChange = onTtsSpeedChange,
+            onDismiss = onDismissSettings
+        )
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
-    LlamaTheme {
-        Greeting(spokenText = "Hallo", assistantResponse = "Wie kann ich helfen?", onButtonClick = {})
-    }
+fun SettingsDialog(
+    ttsPitch: Float,
+    ttsSpeed: Float,
+    onTtsPitchChange: (Float) -> Unit,
+    onTtsSpeedChange: (Float) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Einstellungen") },
+        text = {
+            Column {
+                Text("Stimmlage (Pitch)")
+                Slider(
+                    value = ttsPitch,
+                    onValueChange = onTtsPitchChange,
+                    valueRange = 0.5f..2.0f,
+                    steps = 5
+                )
+                Text("Sprechgeschwindigkeit")
+                Slider(
+                    value = ttsSpeed,
+                    onValueChange = onTtsSpeedChange,
+                    valueRange = 0.5f..2.0f,
+                    steps = 5
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("OK")
+            }
+        }
+    )
 }
