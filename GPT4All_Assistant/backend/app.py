@@ -47,7 +47,7 @@ def chat():
 
     prompt = (
         f"Antworte klar und direkt auf die Frage: {user_input}. "
-        "Verwende keine komplizierten Begriffe. "
+        "Verwende keine komplizierten Begriffe, Mehrdeutigkeiten oder indirekte Formulierungen. "
         "Wenn eine Erklärung notwendig ist, halte sie kurz und einfach."
     )
     
