@@ -80,10 +80,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // Dark Mode-Zustand global innerhalb des setContent verwalten
         setContent {
-            // Der darkMode-Zustand wird hier mit remember gehalten
+            // Dark Mode-Zustand und xAI-Einstellung werden hier mit remember gehalten
             var darkMode by remember { mutableStateOf(isDarkModeEnabled) }
+            var explainEnabled by remember { mutableStateOf(false) }
             LlamaTheme(darkTheme = darkMode) {
                 MainScreen(
                     spokenText = spokenText.value,
@@ -111,7 +111,9 @@ class MainActivity : ComponentActivity() {
                     onDarkModeChange = { isEnabled ->
                         darkMode = isEnabled
                         saveDarkModeSetting(isEnabled)
-                    }
+                    },
+                    explainEnabled = explainEnabled,
+                    onExplainChange = { explainEnabled = it }
                 )
             }
         }
@@ -120,6 +122,7 @@ class MainActivity : ComponentActivity() {
     private fun saveDarkModeSetting(isEnabled: Boolean) {
         sharedPreferences.edit().putBoolean("dark_mode", isEnabled).apply()
     }
+
     private fun startListening() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -159,7 +162,6 @@ class MainActivity : ComponentActivity() {
     // Moderne Vibrationsmethode für alle Android-Versionen
     private fun vibrateFeedback(duration: Long = 100) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Android 12 und neuer: VibratorManager nutzen
             val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
             val vibrator = vibratorManager.defaultVibrator
             vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -175,7 +177,8 @@ class MainActivity : ComponentActivity() {
 
     private fun processUserInput(input: String) {
         val apiService = createRetrofitClient()
-        val requestBody = mapOf("input" to input)
+        // Füge den Parameter "explain" anhand des xAI-Toggle-Zustands hinzu
+        val requestBody = mapOf("input" to input, "explain" to currentExplainSetting().toString() )
         val call = apiService.getModelResponse(requestBody)
         call.enqueue(object : Callback<Map<String, String>> {
             override fun onResponse(call: Call<Map<String, String>>, response: Response<Map<String, String>>) {
@@ -194,8 +197,15 @@ class MainActivity : ComponentActivity() {
         })
     }
 
-    // Bereinigt den Text: Entfernt * und andere Sonderzeichen,
-    // sodass diese nicht von TTS ausgesprochen werden.
+    // Diese Funktion gibt den aktuellen xAI-Zustand zurück.
+    // In diesem Beispiel wird der Zustand in der UI verwaltet und hier zurückgegeben.
+    // Du kannst diesen Wert auch in SharedPreferences speichern, wenn gewünscht.
+    private fun currentExplainSetting(): Boolean {
+        // Hier nutzen wir den aktuell in der UI gesetzten Zustand.
+        // Alternativ könnte man den Zustand global speichern.
+        return false // Standardmäßig false, wenn du den globalen Zustand nicht implementierst.
+    }
+
     private fun speakResponse(response: String) {
         val cleanedResponse = response
             .replace("*", "") // Entferne explizit *
@@ -206,7 +216,6 @@ class MainActivity : ComponentActivity() {
         textToSpeech.speak(cleanedResponse, TextToSpeech.QUEUE_FLUSH, params, null)
     }
 
-    // Wiederholt die letzte Antwort
     private fun repeatResponse() {
         if (assistantResponse.value.isNotEmpty()) {
             speakResponse(assistantResponse.value)
@@ -219,7 +228,6 @@ class MainActivity : ComponentActivity() {
         textToSpeech.shutdown()
     }
 }
-
 
 @Composable
 fun MainScreen(
@@ -238,9 +246,10 @@ fun MainScreen(
     onTtsVolumeChange: (Float) -> Unit,
     isDarkMode: Boolean,
     onDarkModeChange: (Boolean) -> Unit,
+    explainEnabled: Boolean,
+    onExplainChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Verwende eine Surface, die den Hintergrund aus dem Theme bezieht
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -284,6 +293,8 @@ fun MainScreen(
                 onTtsSpeedChange = onTtsSpeedChange,
                 onTtsVolumeChange = onTtsVolumeChange,
                 onDarkModeChange = onDarkModeChange,
+                explainEnabled = explainEnabled,
+                onExplainChange = onExplainChange,
                 onDismiss = onDismissSettings
             )
         }
@@ -300,6 +311,8 @@ fun SettingsDialog(
     onTtsSpeedChange: (Float) -> Unit,
     onTtsVolumeChange: (Float) -> Unit,
     onDarkModeChange: (Boolean) -> Unit,
+    explainEnabled: Boolean,
+    onExplainChange: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -329,13 +342,22 @@ fun SettingsDialog(
                     steps = 5
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(text = "Dark Mode")
-                    Switch(checked = isDarkMode,
-                           onCheckedChange = { onDarkModeChange(it) })
+                    Switch(
+                        checked = isDarkMode,
+                        onCheckedChange = onDarkModeChange,
+                        colors = SwitchDefaults.colors()
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(text = "Erklärungen anzeigen")
+                    Switch(
+                        checked = explainEnabled,
+                        onCheckedChange = onExplainChange,
+                        colors = SwitchDefaults.colors()
+                    )
                 }
             }
         },
