@@ -10,6 +10,6 @@ import retrofit2.http.POST
  * Unterstützt Session-ID für Kontexterhaltung und Erklärungsfunktion für xAI.
  */
 interface FlaskApiService {
-    @POST("/chat")
+    @POST("chat")
     fun getModelResponse(@Body request: Map<String, String>): Call<Map<String, String>>
 }
