@@ -7,6 +7,10 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.security.cert.X509Certificate
 import javax.net.ssl.*
 
+/**
+ * Erstellt einen OkHttpClient, der SSL-Zertifikate ignoriert.
+ * Hinweis: Dies sollte in Produktionsumgebungen vermieden werden.
+ */
 fun createUnsafeOkHttpClient(): OkHttpClient {
     return try {
         // Vertrauenswürdiger Manager, der alle Zertifikate akzeptiert
@@ -37,6 +41,10 @@ fun createUnsafeOkHttpClient(): OkHttpClient {
     }
 }
 
+/**
+ * Erstellt einen Retrofit-Client für die Kommunikation mit dem Flask-Backend.
+ * Unterstützt die erweiterten Anwendungsfunktionen wie Session-Management und xAI.
+ */
 fun createRetrofitClient(): FlaskApiService {
     val okHttpClient = createUnsafeOkHttpClient()
     val retrofit = Retrofit.Builder()
