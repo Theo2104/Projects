@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
@@ -21,16 +22,16 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -62,11 +63,13 @@ class MainActivity : ComponentActivity() {
     private var ttsSpeed by mutableStateOf(1.0f)
     private var ttsVolume by mutableStateOf(0.5f)
 
+    // xAI-Schalter (falls Erklärungen benötigt werden)
+    private var explainEnabled by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         sharedPreferences = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val isDarkModeEnabled = sharedPreferences.getBoolean("dark_mode", false)
-        // Vibrator initialisieren
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
         // Mikrofonberechtigung anfordern
@@ -90,11 +93,11 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            // Dark Mode-Zustand und xAI-Einstellung werden hier mit remember gehalten
             var darkMode by remember { mutableStateOf(isDarkModeEnabled) }
-            var explainEnabled by remember { mutableStateOf(false) }
             LlamaTheme(darkTheme = darkMode) {
-                UserInterface(
+                // ResponsiveUserInterface entscheidet: Beim ersten Start wird Portrait gezeigt,
+                // erst nach Drehung wechselt die UI zur Landscape-Variante.
+                ResponsiveUserInterface(
                     spokenText = spokenText.value,
                     assistantResponse = assistantResponse.value,
                     explanation = explanation.value,
@@ -139,25 +142,19 @@ class MainActivity : ComponentActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.GERMAN)
         }
-
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
                 val resultsList = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val recognizedText = resultsList?.get(0) ?: ""
                 spokenText.value = recognizedText
-
-                // Taktile Rückmeldung (Vibration)
                 vibrateFeedback()
-
                 processUserInput(recognizedText)
             }
-
             override fun onError(error: Int) {
-                val errorMessage = "Es tut mir Leid. Ich habe das nicht verstanden. Kannst du das bitte noch einmal wiederholen?"
+                val errorMessage = "Es tut mir Leid. Ich habe das nicht verstanden. Bitte wiederholen."
                 assistantResponse.value = errorMessage
                 speakResponse(errorMessage)
             }
-
             override fun onBeginningOfSpeech() {}
             override fun onEndOfSpeech() {}
             override fun onReadyForSpeech(params: Bundle?) {}
@@ -166,11 +163,9 @@ class MainActivity : ComponentActivity() {
             override fun onPartialResults(partialResults: Bundle?) {}
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
-
         speechRecognizer.startListening(intent)
     }
 
-    // Moderne Vibrationsmethode für alle Android-Versionen
     private fun vibrateFeedback(duration: Long = 100) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
@@ -188,43 +183,28 @@ class MainActivity : ComponentActivity() {
 
     private fun processUserInput(input: String) {
         val apiService = createRetrofitClient()
-        // Füge den Parameter "explain" anhand des xAI-Toggle-Zustands hinzu
-        val requestBody = mapOf("input" to input, "explain" to currentExplainSetting().toString())
-        isLoading.value = true
-        val call = apiService.getModelResponse(requestBody)
-        call.enqueue(object : Callback<Map<String, String>> {
+        val requestBody = mapOf("input" to input)
+        apiService.getModelResponse(requestBody).enqueue(object : Callback<Map<String, String>> {
             override fun onResponse(call: Call<Map<String, String>>, response: Response<Map<String, String>>) {
-                isLoading.value = false
                 if (response.isSuccessful) {
                     val generatedText = response.body()?.get("response") ?: "Keine Antwort erhalten"
-                    val explanationText = response.body()?.get("explanation") ?: ""
                     assistantResponse.value = generatedText
-                    explanation.value = explanationText
                     speakResponse(generatedText)
                 } else {
                     assistantResponse.value = "API-Fehler: ${response.code()}"
                 }
             }
-
             override fun onFailure(call: Call<Map<String, String>>, t: Throwable) {
-                isLoading.value = false
                 assistantResponse.value = "Fehler bei der API-Anfrage: ${t.message}"
             }
         })
     }
 
-    // Diese Funktion gibt den aktuellen xAI-Zustand zurück.
-    private fun currentExplainSetting(): Boolean {
-        // Hier nutzen wir den aktuell in der UI gesetzten Zustand.
-        // Alternativ könnte man den Zustand global speichern.
-        return false // Standardmäßig false, wenn du den globalen Zustand nicht implementierst.
-    }
-
     private fun speakResponse(response: String) {
         val cleanedResponse = response
-            .replace("*", "") // Entferne explizit *
-            .replace(Regex("[^\\p{L}\\p{Nd}\\s]"), "") // Entfernt alle übrigen Sonderzeichen
-        val params = Bundle().apply {
+            .replace("*", "")
+            .replace(Regex("[^\\p{L}\\p{Nd}\\s]"), "")
+        val params = android.os.Bundle().apply {
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, ttsVolume)
         }
         textToSpeech.speak(cleanedResponse, TextToSpeech.QUEUE_FLUSH, params, null)
@@ -243,9 +223,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-
 @Composable
-fun UserInterface(
+fun ResponsiveUserInterface(
     spokenText: String,
     assistantResponse: String,
     explanation: String,
@@ -267,8 +246,88 @@ fun UserInterface(
     onExplainChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showExplanation by remember { mutableStateOf(false) }
+    val configuration = LocalConfiguration.current
+    var initialOrientation by remember { mutableStateOf(configuration.orientation) }
+    var hasRotated by remember { mutableStateOf(false) }
 
+    LaunchedEffect(configuration.orientation) {
+        if (configuration.orientation != initialOrientation) {
+            hasRotated = true
+        }
+    }
+
+    if (hasRotated && configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+        LandscapeUserInterface(
+            spokenText = spokenText,
+            assistantResponse = assistantResponse,
+            explanation = explanation,
+            isLoading = isLoading,
+            onListenClick = onListenClick,
+            onRepeatClick = onRepeatClick,
+            onSettingsClick = onSettingsClick,
+            showSettingsDialog = showSettingsDialog,
+            onDismissSettings = onDismissSettings,
+            ttsPitch = ttsPitch,
+            ttsSpeed = ttsSpeed,
+            ttsVolume = ttsVolume,
+            onTtsPitchChange = onTtsPitchChange,
+            onTtsSpeedChange = onTtsSpeedChange,
+            onTtsVolumeChange = onTtsVolumeChange,
+            isDarkMode = isDarkMode,
+            onDarkModeChange = onDarkModeChange,
+            explainEnabled = explainEnabled,
+            onExplainChange = onExplainChange,
+            modifier = modifier
+        )
+    } else {
+        PortraitUserInterface(
+            spokenText = spokenText,
+            assistantResponse = assistantResponse,
+            explanation = explanation,
+            isLoading = isLoading,
+            onListenClick = onListenClick,
+            onRepeatClick = onRepeatClick,
+            onSettingsClick = onSettingsClick,
+            showSettingsDialog = showSettingsDialog,
+            onDismissSettings = onDismissSettings,
+            ttsPitch = ttsPitch,
+            ttsSpeed = ttsSpeed,
+            ttsVolume = ttsVolume,
+            onTtsPitchChange = onTtsPitchChange,
+            onTtsSpeedChange = onTtsSpeedChange,
+            onTtsVolumeChange = onTtsVolumeChange,
+            isDarkMode = isDarkMode,
+            onDarkModeChange = onDarkModeChange,
+            explainEnabled = explainEnabled,
+            onExplainChange = onExplainChange,
+            modifier = modifier
+        )
+    }
+}
+
+@Composable
+fun PortraitUserInterface(
+    spokenText: String,
+    assistantResponse: String,
+    explanation: String,
+    isLoading: Boolean,
+    onListenClick: () -> Unit,
+    onRepeatClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    showSettingsDialog: Boolean,
+    onDismissSettings: () -> Unit,
+    ttsPitch: Float,
+    ttsSpeed: Float,
+    ttsVolume: Float,
+    onTtsPitchChange: (Float) -> Unit,
+    onTtsSpeedChange: (Float) -> Unit,
+    onTtsVolumeChange: (Float) -> Unit,
+    isDarkMode: Boolean,
+    onDarkModeChange: (Boolean) -> Unit,
+    explainEnabled: Boolean,
+    onExplainChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -281,93 +340,55 @@ fun UserInterface(
         ) {
             Text(
                 "Sprachassistent",
-                style = TextStyle(
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                ),
-                modifier = Modifier.padding(bottom = 24.dp)
+                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
             )
-
             Button(
                 onClick = onListenClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(8.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "🎤",
-                        style = TextStyle(fontSize = 22.sp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🎤", style = TextStyle(fontSize = 22.sp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Sprechen",
-                        style = TextStyle(fontSize = 18.sp)
-                    )
+                    Text("Sprechen", style = TextStyle(fontSize = 18.sp))
                 }
             }
-
             Spacer(modifier = Modifier.height(24.dp))
-
             DisplayCard(
                 title = "Deine Nachricht:",
                 content = spokenText,
                 backgroundColor = MaterialTheme.colorScheme.surfaceVariant
             )
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            AnimatedVisibility(
-                visible = isLoading,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .padding(8.dp)
-                )
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
-
             DisplayCard(
                 title = "Assistenten-Antwort:",
                 content = assistantResponse,
                 backgroundColor = MaterialTheme.colorScheme.primaryContainer
             )
-
             if (explainEnabled && explanation.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(
-                        onClick = { showExplanation = !showExplanation }
-                    ) {
+                    TextButton(onClick = { onExplainChange(!explainEnabled) }) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("ℹ️", style = TextStyle(fontSize = 20.sp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "ℹ️",
-                                style = TextStyle(fontSize = 20.sp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                if (showExplanation) "Erklärung ausblenden" else "Erklärung anzeigen",
+                                text = if (explainEnabled) "Erklärung ausblenden" else "Erklärung anzeigen",
                                 style = TextStyle(fontSize = 14.sp)
                             )
                         }
                     }
                 }
-
                 AnimatedVisibility(
-                    visible = showExplanation,
+                    visible = explainEnabled,
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
@@ -378,28 +399,15 @@ fun UserInterface(
                     )
                 }
             }
-
             Spacer(modifier = Modifier.weight(1f))
-
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                ActionButton(
-                    onClick = onRepeatClick,
-                    icon = "🔄",
-                    text = "Wiederholen"
-                )
-                ActionButton(
-                    onClick = onSettingsClick,
-                    icon = "⚙️",
-                    text = "Einstellungen"
-                )
+                ActionButton(onClick = onRepeatClick, icon = "🔄", text = "Wiederholen")
+                ActionButton(onClick = onSettingsClick, icon = "⚙️", text = "Einstellungen")
             }
         }
-
         if (showSettingsDialog) {
             SettingsDialog(
                 ttsPitch = ttsPitch,
@@ -419,25 +427,118 @@ fun UserInterface(
 }
 
 @Composable
+fun LandscapeUserInterface(
+    spokenText: String,
+    assistantResponse: String,
+    explanation: String,
+    isLoading: Boolean,
+    onListenClick: () -> Unit,
+    onRepeatClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    showSettingsDialog: Boolean,
+    onDismissSettings: () -> Unit,
+    ttsPitch: Float,
+    ttsSpeed: Float,
+    ttsVolume: Float,
+    onTtsPitchChange: (Float) -> Unit,
+    onTtsSpeedChange: (Float) -> Unit,
+    onTtsVolumeChange: (Float) -> Unit,
+    isDarkMode: Boolean,
+    onDarkModeChange: (Boolean) -> Unit,
+    explainEnabled: Boolean,
+    onExplainChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxSize().padding(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Sprachassistent",
+                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            Button(
+                onClick = onListenClick,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🎤", style = TextStyle(fontSize = 22.sp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Sprechen", style = TextStyle(fontSize = 18.sp))
+                }
+            }
+            DisplayCard(
+                title = "Deine Nachricht:",
+                content = spokenText,
+                backgroundColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ActionButton(onClick = onRepeatClick, icon = "🔄", text = "Wiederholen")
+                ActionButton(onClick = onSettingsClick, icon = "⚙️", text = "Einstellungen")
+            }
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            DisplayCard(
+                title = "Assistenten-Antwort:",
+                content = assistantResponse,
+                backgroundColor = MaterialTheme.colorScheme.primaryContainer
+            )
+        }
+    }
+    if (showSettingsDialog) {
+        SettingsDialog(
+            ttsPitch = ttsPitch,
+            ttsSpeed = ttsSpeed,
+            ttsVolume = ttsVolume,
+            isDarkMode = isDarkMode,
+            onTtsPitchChange = onTtsPitchChange,
+            onTtsSpeedChange = onTtsSpeedChange,
+            onTtsVolumeChange = onTtsVolumeChange,
+            onDarkModeChange = onDarkModeChange,
+            explainEnabled = explainEnabled,
+            onExplainChange = onExplainChange,
+            onDismiss = onDismissSettings
+        )
+    }
+}
+
+@Composable
 fun DisplayCard(
     title: String,
     content: String,
     backgroundColor: Color
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
     ) {
         Text(
             text = title,
-            style = TextStyle(
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            ),
+            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium),
             modifier = Modifier.padding(bottom = 4.dp)
         )
-
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -470,10 +571,7 @@ fun ActionButton(
         modifier = Modifier.padding(horizontal = 8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = icon,
-                style = TextStyle(fontSize = 20.sp)
-            )
+            Text(text = icon, style = TextStyle(fontSize = 20.sp))
             Spacer(modifier = Modifier.width(4.dp))
             Text(text)
         }
@@ -500,22 +598,19 @@ fun SettingsDialog(
                 .fillMaxWidth()
                 .padding(16.dp),
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface
+            color = if (isDarkMode) Color(0xFF121212) else MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
                     .padding(24.dp)
+                    .verticalScroll(rememberScrollState())
                     .fillMaxWidth()
             ) {
                 Text(
                     "Einstellungen",
-                    style = TextStyle(
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
+                    style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
-
                 SettingsSection(title = "Sprachwiedergabe") {
                     SettingsSlider(
                         title = "Stimmlage",
@@ -545,9 +640,7 @@ fun SettingsDialog(
                         highValueLabel = "Lauter"
                     )
                 }
-
                 Divider(modifier = Modifier.padding(vertical = 16.dp))
-
                 SettingsSection(title = "App-Einstellungen") {
                     SettingsToggle(
                         title = "Dunkler Modus",
@@ -555,9 +648,7 @@ fun SettingsDialog(
                         checked = isDarkMode,
                         onCheckedChange = onDarkModeChange
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
-
                     SettingsToggle(
                         title = "Erklärungen anzeigen",
                         description = "Zusätzliche Informationen zu Antworten anzeigen",
@@ -565,14 +656,10 @@ fun SettingsDialog(
                         onCheckedChange = onExplainChange
                     )
                 }
-
                 Spacer(modifier = Modifier.height(24.dp))
-
                 Button(
                     onClick = onDismiss,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
                     Text("Schließen")
                 }
@@ -589,10 +676,7 @@ fun SettingsSection(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            style = TextStyle(
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            ),
+            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium),
             modifier = Modifier.padding(bottom = 12.dp)
         )
         content()
@@ -610,10 +694,7 @@ fun SettingsSlider(
     highValueLabel: String
 ) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(
-            text = title,
-            style = TextStyle(fontSize = 14.sp)
-        )
+        Text(text = title, style = TextStyle(fontSize = 14.sp))
         Slider(
             value = value,
             onValueChange = onValueChange,
@@ -625,14 +706,8 @@ fun SettingsSlider(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = lowValueLabel,
-                style = TextStyle(fontSize = 12.sp)
-            )
-            Text(
-                text = highValueLabel,
-                style = TextStyle(fontSize = 12.sp)
-            )
+            Text(text = lowValueLabel, style = TextStyle(fontSize = 12.sp))
+            Text(text = highValueLabel, style = TextStyle(fontSize = 12.sp))
         }
     }
 }
@@ -645,23 +720,15 @@ fun SettingsToggle(
     onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = TextStyle(fontSize = 14.sp)
-            )
+            Text(text = title, style = TextStyle(fontSize = 14.sp))
             Text(
                 text = description,
-                style = TextStyle(
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                style = TextStyle(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             )
         }
         Switch(

@@ -111,7 +111,7 @@ def chat():
 def process_response(response):
     """Verarbeitet die Antwort für autistische Nutzer gemäß den Anforderungen."""
     response = response.strip()
-    for prefix in ["antwort:", "antowrt:", "antwort", "assistent:", "assistent"]:
+    for prefix in ["antwort:", "antwort", "assistent:", "assistent"]:
         if response.lower().startswith(prefix):
             response = response[len(prefix):].strip()
 
@@ -119,7 +119,7 @@ def process_response(response):
     if len(parts) > 1:
         response = parts[1].strip()
     else:
-        question_fragments = ["?", "Zwiebeln", "Tomaten", "wie", "was", "warum", "wann", "wo", "wer"]
+        question_fragments = ["?", "wie", "was", "warum", "wann", "wo", "wer"]
         for fragment in question_fragments:
             if response.startswith(fragment):
                 sentence_end = response.find(". ")
