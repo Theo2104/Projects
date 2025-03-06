@@ -49,6 +49,26 @@ def generate_response(prompt, max_tokens, top_p):
     with model_lock:
         return model.generate(prompt, max_tokens=max_tokens, top_p=top_p)
 
+def generate_explanation(answer, user_input):
+    """Generiert eine kurze, nachvollziehbare Erklärung, warum diese Antwort gegeben wurde."""
+    explanation_prompt = (
+        "Du sollst kurz und einfach erklären, warum diese Antwort auf die Frage gegeben wurde. "
+        "Beachte folgende Regeln:\n"
+        "1. Verwende maximal 3 kurze Sätze für die Erklärung.\n"
+        "2. Erkläre nur die wichtigsten Faktoren für die Entscheidung.\n"
+        "3. Vermeide Fachjargon und komplexe Konzepte.\n"
+        "4. Sei konkret und verwende einfache Sprache.\n\n"
+        "Frage: " + user_input + "\n"
+        "Antwort: " + answer + "\n\n"
+        "Erklärung:"
+    )
+    try:
+        raw_explanation = model.generate(explanation_prompt, max_tokens=50, top_p=0.7)
+        explanation = process_response(raw_explanation)
+    except Exception as e:
+        explanation = "Fehler beim Generieren der Erklärung: " + str(e)
+    return explanation
+
 @app.route("/", methods=["GET"])
 def health_check():
     return jsonify({"status": "Server is running"})
@@ -64,12 +84,14 @@ def chat():
             conversation_contexts[session_id] = ""
 
     user_input = data.get("input", "").strip()
+    # Prüfe, ob die Anfrage auch eine Erklärung anfordert (xAI)
+    explain_flag = data.get("explain", False)
 
-    # Prüfe, ob es bereits eine zwischengespeicherte Antwort gibt
-    cached_key = f"{session_id}:{user_input}"
+    # Cache prüfen
+    cached_key = f"{session_id}:{user_input}:{explain_flag}"
     cached_response = cache.get(cached_key)
     if cached_response:
-        return jsonify({"response": cached_response})
+        return jsonify(cached_response)
 
     # Erstelle den Prompt unter Einbeziehung des bisherigen Kontexts
     with conversation_lock:
@@ -94,19 +116,25 @@ def chat():
     except Exception as e:
         return jsonify({"error": str(e)})
 
-    response = process_response(raw_response)
+    answer = process_response(raw_response)
 
     # Aktualisiere den Gesprächskontext thread-sicher
     with conversation_lock:
-        conversation_contexts[session_id] += "\nNutzer: " + user_input + "\nAssistent: " + response
+        conversation_contexts[session_id] += "\nNutzer: " + user_input + "\nAssistent: " + answer
         context_lines = conversation_contexts[session_id].split('\n')
         if len(context_lines) > 10:
             conversation_contexts[session_id] = '\n'.join(context_lines[-10:])
 
-    # Cache die Antwort für 5 Minuten
-    cache.set(cached_key, response, timeout=300)
+    # Generiere Erklärung, falls angefordert
+    explanation_text = ""
+    if explain_flag:
+        explanation_text = generate_explanation(answer, user_input)
 
-    return jsonify({"response": response})
+    # Cache die Antwort für 5 Minuten
+    response_data = {"response": answer, "explanation": explanation_text}
+    cache.set(cached_key, response_data, timeout=300)
+
+    return jsonify(response_data)
 
 def process_response(response):
     """Verarbeitet die Antwort für autistische Nutzer gemäß den Anforderungen."""

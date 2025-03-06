@@ -183,12 +183,16 @@ class MainActivity : ComponentActivity() {
 
     private fun processUserInput(input: String) {
         val apiService = createRetrofitClient()
-        val requestBody = mapOf("input" to input)
+        // Füge den xAI-Parameter hinzu: "explain" entspricht dem Zustand des Toggles
+        val requestBody = mapOf("input" to input, "explain" to explainEnabled.toString())
         apiService.getModelResponse(requestBody).enqueue(object : Callback<Map<String, String>> {
             override fun onResponse(call: Call<Map<String, String>>, response: Response<Map<String, String>>) {
                 if (response.isSuccessful) {
                     val generatedText = response.body()?.get("response") ?: "Keine Antwort erhalten"
+                    // Setze die generierte Antwort
                     assistantResponse.value = generatedText
+                    // Übernehme die Erklärung aus der Antwort (falls vorhanden)
+                    explanation.value = response.body()?.get("explanation") ?: ""
                     speakResponse(generatedText)
                 } else {
                     assistantResponse.value = "API-Fehler: ${response.code()}"
@@ -199,6 +203,7 @@ class MainActivity : ComponentActivity() {
             }
         })
     }
+
 
     private fun speakResponse(response: String) {
         val cleanedResponse = response
