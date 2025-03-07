@@ -65,12 +65,12 @@ def is_relevant_context(context: str, user_input: str, threshold: float = 0.5) -
 def update_context(session_id: str, user_input: str, answer: str):
     """Aktualisiert oder setzt den Gesprächskontext zurück, je nach thematischer Relevanz."""
     with conversation_lock:
-        current_context = conversation_contexts.get(session_id, "")
-        if not is_relevant_context(current_context, user_input):
+        current_context = conversation_contexts.get(session_id)
+        if current_context is None or not is_relevant_context(current_context, user_input):
             conversation_contexts[session_id] = f"Nutzer: {user_input}\nAssistent: {answer}"
         else:
             conversation_contexts[session_id] += f"\nNutzer: {user_input}\nAssistent: {answer}"
-        # Kontextlänge begrenzen
+        # Kontextlänge begrenzen auf die letzten 10 Zeilen
         context_lines = conversation_contexts[session_id].split('\n')
         if len(context_lines) > 10:
             conversation_contexts[session_id] = '\n'.join(context_lines[-10:])
@@ -95,7 +95,7 @@ def chat():
     # Kontext abrufen und verarbeiten
     with conversation_lock:
         context = conversation_contexts.get(session_id, "")
-    
+
     prompt = (
         "Du bist ein sprachgesteuerter Assistent für autistische Nutzer. "
         "Beachte folgende Regeln:\n\n"
