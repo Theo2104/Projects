@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +14,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -38,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
 import com.example.llama.api.createRetrofitClient
 import com.example.llama.ui.theme.LlamaTheme
 import retrofit2.Call
@@ -52,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var vibrator: Vibrator
     private lateinit var sharedPreferences: SharedPreferences
 
+    // UI-Zustände (über Compose-State)
     private val spokenText = mutableStateOf("")
     private val assistantResponse = mutableStateOf("")
     private val explanation = mutableStateOf("")
@@ -63,8 +67,31 @@ class MainActivity : ComponentActivity() {
     private var ttsSpeed by mutableStateOf(1.0f)
     private var ttsVolume by mutableStateOf(0.5f)
 
-    // xAI-Schalter (falls Erklärungen benötigt werden)
+    // Schalter für xAI-Erklärungen
     private var explainEnabled by mutableStateOf(false)
+
+    // ActivityResultLauncher für Google Speech Recognition
+    private val googleSpeechLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK && result.data != null) {
+                val results = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                val recognizedText = results?.get(0) ?: ""
+                spokenText.value = recognizedText
+                vibrateFeedback(50)
+                processUserInput(recognizedText)
+            } else {
+                // Fallback: Starte den nativen SpeechRecognizer
+                startNativeSpeechRecognition()
+            }
+        }
+
+    // Berechtigung für das Mikrofon anfordern
+    private val permissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (!isGranted) {
+                Toast.makeText(this, "Mikrofon-Berechtigung wird benötigt", Toast.LENGTH_SHORT).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,31 +99,20 @@ class MainActivity : ComponentActivity() {
         val isDarkModeEnabled = sharedPreferences.getBoolean("dark_mode", false)
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
 
-        // Mikrofonberechtigung anfordern
-        val requestPermissionLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted: Boolean ->
-            if (!isGranted) {
-                Toast.makeText(this, "Mikrofon-Berechtigung benötigt", Toast.LENGTH_SHORT).show()
-            }
+        // Berechtigung prüfen und ggf. anfordern
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
-        requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 
-        // Sprach- und TTS-Initialisierung
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-        textToSpeech = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                textToSpeech.language = Locale.GERMAN
-                textToSpeech.setPitch(ttsPitch)
-                textToSpeech.setSpeechRate(ttsSpeed)
-            }
-        }
+        // Initialisiere TextToSpeech und SpeechRecognizer
+        initializeTextToSpeech()
+        initializeSpeechRecognizer()
 
         setContent {
             var darkMode by remember { mutableStateOf(isDarkModeEnabled) }
             LlamaTheme(darkTheme = darkMode) {
-                // ResponsiveUserInterface entscheidet: Beim ersten Start wird Portrait gezeigt,
-                // erst nach Drehung wechselt die UI zur Landscape-Variante.
                 ResponsiveUserInterface(
                     spokenText = spokenText.value,
                     assistantResponse = assistantResponse.value,
@@ -137,40 +153,110 @@ class MainActivity : ComponentActivity() {
         sharedPreferences.edit().putBoolean("dark_mode", isEnabled).apply()
     }
 
-    private fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.GERMAN)
+    private fun initializeTextToSpeech() {
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val germanLocale = Locale("de", "DE")
+                val result = textToSpeech.setLanguage(germanLocale)
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.e("TextToSpeech", "Deutsche Sprache wird nicht unterstützt!")
+                    Toast.makeText(this, "Deutsche Sprache wird nicht unterstützt.", Toast.LENGTH_SHORT).show()
+                }
+                textToSpeech.setPitch(ttsPitch)
+                textToSpeech.setSpeechRate(ttsSpeed)
+            } else {
+                Log.e("TextToSpeech", "TTS konnte nicht initialisiert werden: $status")
+                Toast.makeText(this, "Sprachausgabe konnte nicht initialisiert werden.", Toast.LENGTH_SHORT).show()
+            }
         }
+    }
+
+    private fun initializeSpeechRecognizer() {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Toast.makeText(this, "Spracherkennung ist auf diesem Gerät nicht verfügbar", Toast.LENGTH_LONG).show()
+            return
+        }
+        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
         speechRecognizer.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
                 val resultsList = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val recognizedText = resultsList?.get(0) ?: ""
                 spokenText.value = recognizedText
-                vibrateFeedback()
+                vibrateFeedback(50)
                 processUserInput(recognizedText)
             }
             override fun onError(error: Int) {
                 val errorMessage = "Es tut mir Leid. Ich habe das nicht verstanden. Bitte wiederholen."
                 assistantResponse.value = errorMessage
                 speakResponse(errorMessage)
+                isLoading.value = false
             }
-            override fun onBeginningOfSpeech() {}
-            override fun onEndOfSpeech() {}
-            override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
+            override fun onBeginningOfSpeech() { isLoading.value = true }
+            override fun onEndOfSpeech() { }
+            override fun onReadyForSpeech(params: Bundle?) { }
+            override fun onRmsChanged(rmsdB: Float) { }
+            override fun onBufferReceived(buffer: ByteArray?) { }
+            override fun onPartialResults(partialResults: Bundle?) {
+                val resultsList = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!resultsList.isNullOrEmpty()) {
+                    spokenText.value = resultsList[0] + "..."
+                }
+            }
+            override fun onEvent(eventType: Int, params: Bundle?) { }
         })
-        speechRecognizer.startListening(intent)
+    }
+
+    /**
+     * Versucht zunächst die Google Speech Recognition via ActivityResultLauncher.
+     * Schlägt diese fehl, wird der native SpeechRecognizer als Fallback gestartet.
+     */
+    private fun startListening() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "de-DE")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Bitte sprechen Sie jetzt...")
+        }
+        try {
+            googleSpeechLauncher.launch(intent)
+        } catch (e: Exception) {
+            Log.e("SpeechRecognition", "Fehler bei Google Speech Recognition: ${e.message}")
+            startNativeSpeechRecognition()
+        }
+    }
+
+    /**
+     * Fallback-Methode: Startet die native Spracherkennung über den SpeechRecognizer.
+     */
+    private fun startNativeSpeechRecognition() {
+        isLoading.value = true
+        spokenText.value = "Ich höre zu..."
+        try {
+            speechRecognizer.cancel()
+        } catch (e: Exception) {
+            Log.e("SpeechRecognition", "Fehler beim Abbrechen der vorherigen Erkennung: ${e.message}")
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "de-DE")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+        }
+        try {
+            speechRecognizer.startListening(intent)
+            vibrateFeedback(50)
+            Toast.makeText(this, "Native Spracherkennung gestartet...", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("SpeechRecognition", "Fehler beim Starten der nativen Spracherkennung: ${e.message}")
+            Toast.makeText(this, "Fehler: ${e.message}", Toast.LENGTH_SHORT).show()
+            isLoading.value = false
+        }
     }
 
     private fun vibrateFeedback(duration: Long = 100) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibratorManager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as android.os.VibratorManager
-            val vibrator = vibratorManager.defaultVibrator
-            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+            val defaultVibrator = vibratorManager.defaultVibrator
+            defaultVibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
         } else {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -183,15 +269,13 @@ class MainActivity : ComponentActivity() {
 
     private fun processUserInput(input: String) {
         val apiService = createRetrofitClient()
-        // Füge den xAI-Parameter hinzu: "explain" entspricht dem Zustand des Toggles
+        // xAI-Parameter: "explain" entspricht dem Zustand des Toggles
         val requestBody = mapOf("input" to input, "explain" to explainEnabled.toString())
         apiService.getModelResponse(requestBody).enqueue(object : Callback<Map<String, String>> {
             override fun onResponse(call: Call<Map<String, String>>, response: Response<Map<String, String>>) {
                 if (response.isSuccessful) {
                     val generatedText = response.body()?.get("response") ?: "Keine Antwort erhalten"
-                    // Setze die generierte Antwort
                     assistantResponse.value = generatedText
-                    // Übernehme die Erklärung aus der Antwort (falls vorhanden)
                     explanation.value = response.body()?.get("explanation") ?: ""
                     speakResponse(generatedText)
                 } else {
@@ -204,12 +288,11 @@ class MainActivity : ComponentActivity() {
         })
     }
 
-
     private fun speakResponse(response: String) {
         val cleanedResponse = response
             .replace("*", "")
             .replace(Regex("[^\\p{L}\\p{Nd}\\s]"), "")
-        val params = android.os.Bundle().apply {
+        val params = Bundle().apply {
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, ttsVolume)
         }
         textToSpeech.speak(cleanedResponse, TextToSpeech.QUEUE_FLUSH, params, null)
@@ -227,6 +310,8 @@ class MainActivity : ComponentActivity() {
         textToSpeech.shutdown()
     }
 }
+
+/* --- UI-Komponenten --- */
 
 @Composable
 fun ResponsiveUserInterface(
@@ -338,9 +423,7 @@ fun PortraitUserInterface(
         color = MaterialTheme.colorScheme.background
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -454,13 +537,9 @@ fun LandscapeUserInterface(
     onExplainChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxSize().padding(16.dp)
-    ) {
+    Row(modifier = modifier.fillMaxSize().padding(16.dp)) {
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -496,9 +575,7 @@ fun LandscapeUserInterface(
         }
         Spacer(modifier = Modifier.width(16.dp))
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -536,9 +613,7 @@ fun DisplayCard(
     content: String,
     backgroundColor: Color
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
             text = title,
             style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium),
@@ -549,11 +624,7 @@ fun DisplayCard(
                 .fillMaxWidth()
                 .padding(vertical = 4.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .border(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(8.dp)
-                ),
+                .border(width = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp)),
             color = backgroundColor
         ) {
             Text(
@@ -599,17 +670,12 @@ fun SettingsDialog(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             color = if (isDarkMode) Color(0xFF121212) else MaterialTheme.colorScheme.surface
         ) {
             Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .verticalScroll(rememberScrollState())
-                    .fillMaxWidth()
+                modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState()).fillMaxWidth()
             ) {
                 Text(
                     "Einstellungen",
