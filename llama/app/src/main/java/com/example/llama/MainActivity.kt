@@ -47,6 +47,7 @@ import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import java.util.Locale
+import androidx.compose.ui.unit.TextUnit
 
 class MainActivity : ComponentActivity() {
 
@@ -148,7 +149,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
+    // Überschreibe onConfigurationChanged, um Rotationen zu handhaben, ohne die Activity neu zu erstellen.
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        Log.d("MainActivity", "Configuration changed: Orientation = ${newConfig.orientation}")
+        // Hier kannst du ggf. weitere Anpassungen vornehmen.
+    }
     private fun saveDarkModeSetting(isEnabled: Boolean) {
         sharedPreferences.edit().putBoolean("dark_mode", isEnabled).apply()
     }
@@ -312,7 +318,178 @@ class MainActivity : ComponentActivity() {
 }
 
 /* --- UI-Komponenten --- */
+@Composable
+fun PortraitUserInterface(
+    spokenText: String,
+    assistantResponse: String,
+    explanation: String,
+    isLoading: Boolean,
+    onListenClick: () -> Unit,
+    onRepeatClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    showSettingsDialog: Boolean,
+    onDismissSettings: () -> Unit,
+    ttsPitch: Float,
+    ttsSpeed: Float,
+    ttsVolume: Float,
+    onTtsPitchChange: (Float) -> Unit,
+    onTtsSpeedChange: (Float) -> Unit,
+    onTtsVolumeChange: (Float) -> Unit,
+    isDarkMode: Boolean,
+    onDarkModeChange: (Boolean) -> Unit,
+    explainEnabled: Boolean,
+    onExplainChange: (Boolean) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Titel und Spracheingabe-Button
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Sprachassistent",
+                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onListenClick,
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .height(64.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("🎤", style = TextStyle(fontSize = 28.sp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Sprechen", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
+                }
+            }
+        }
+        // Nutzereingabe
+        DisplayCard(
+            title = "Deine Nachricht:",
+            content = spokenText,
+            backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp),
+            scrollable = true
+        )
+        // Ladeindikator
+        AnimatedVisibility(
+            visible = isLoading,
+            enter = fadeIn(),
+            exit = fadeOut()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        // Assistenten-Antwort
+        DisplayCard(
+            title = "Assistenten-Antwort:",
+            content = assistantResponse,
+            backgroundColor = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            scrollable = true,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal
+        )
+        // Erklärung (falls aktiviert)
+        if (explainEnabled && explanation.isNotEmpty()) {
+            DisplayCard(
+                title = "Erklärung:",
+                content = explanation,
+                backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                scrollable = true
+            )
+        }
+        // Umschalten der Erklärung
+        if (explanation.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(
+                    onClick = { onExplainChange(!explainEnabled) }
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("ℹ️", style = TextStyle(fontSize = 20.sp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (explainEnabled) "Erklärung ausblenden" else "Erklärung anzeigen",
+                            style = TextStyle(fontSize = 14.sp)
+                        )
+                    }
+                }
+            }
+        }
+        // Aktionstasten – statt fillMaxWidth(0.45f) verwenden wir weight(1f)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            ActionButton(
+                onClick = onRepeatClick,
+                icon = "🔄",
+                text = "Wiederholen",
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 4.dp)
+            )
+            ActionButton(
+                onClick = onSettingsClick,
+                icon = "⚙️",
+                text = "Einstellungen",
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 4.dp)
+            )
+        }
+    }
 
+    if (showSettingsDialog) {
+        SettingsDialog(
+            ttsPitch = ttsPitch,
+            ttsSpeed = ttsSpeed,
+            ttsVolume = ttsVolume,
+            isDarkMode = isDarkMode,
+            onTtsPitchChange = onTtsPitchChange,
+            onTtsSpeedChange = onTtsSpeedChange,
+            onTtsVolumeChange = onTtsVolumeChange,
+            onDarkModeChange = onDarkModeChange,
+            explainEnabled = explainEnabled,
+            onExplainChange = onExplainChange,
+            onDismiss = onDismissSettings
+        )
+    }
+}
 @Composable
 fun ResponsiveUserInterface(
     spokenText: String,
@@ -337,178 +514,57 @@ fun ResponsiveUserInterface(
     modifier: Modifier = Modifier
 ) {
     val configuration = LocalConfiguration.current
-    var initialOrientation by remember { mutableStateOf(configuration.orientation) }
-    var hasRotated by remember { mutableStateOf(false) }
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    LaunchedEffect(configuration.orientation) {
-        if (configuration.orientation != initialOrientation) {
-            hasRotated = true
-        }
-    }
-
-    if (hasRotated && configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-        LandscapeUserInterface(
-            spokenText = spokenText,
-            assistantResponse = assistantResponse,
-            explanation = explanation,
-            isLoading = isLoading,
-            onListenClick = onListenClick,
-            onRepeatClick = onRepeatClick,
-            onSettingsClick = onSettingsClick,
-            showSettingsDialog = showSettingsDialog,
-            onDismissSettings = onDismissSettings,
-            ttsPitch = ttsPitch,
-            ttsSpeed = ttsSpeed,
-            ttsVolume = ttsVolume,
-            onTtsPitchChange = onTtsPitchChange,
-            onTtsSpeedChange = onTtsSpeedChange,
-            onTtsVolumeChange = onTtsVolumeChange,
-            isDarkMode = isDarkMode,
-            onDarkModeChange = onDarkModeChange,
-            explainEnabled = explainEnabled,
-            onExplainChange = onExplainChange,
-            modifier = modifier
-        )
-    } else {
-        PortraitUserInterface(
-            spokenText = spokenText,
-            assistantResponse = assistantResponse,
-            explanation = explanation,
-            isLoading = isLoading,
-            onListenClick = onListenClick,
-            onRepeatClick = onRepeatClick,
-            onSettingsClick = onSettingsClick,
-            showSettingsDialog = showSettingsDialog,
-            onDismissSettings = onDismissSettings,
-            ttsPitch = ttsPitch,
-            ttsSpeed = ttsSpeed,
-            ttsVolume = ttsVolume,
-            onTtsPitchChange = onTtsPitchChange,
-            onTtsSpeedChange = onTtsSpeedChange,
-            onTtsVolumeChange = onTtsVolumeChange,
-            isDarkMode = isDarkMode,
-            onDarkModeChange = onDarkModeChange,
-            explainEnabled = explainEnabled,
-            onExplainChange = onExplainChange,
-            modifier = modifier
-        )
-    }
-}
-
-@Composable
-fun PortraitUserInterface(
-    spokenText: String,
-    assistantResponse: String,
-    explanation: String,
-    isLoading: Boolean,
-    onListenClick: () -> Unit,
-    onRepeatClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    showSettingsDialog: Boolean,
-    onDismissSettings: () -> Unit,
-    ttsPitch: Float,
-    ttsSpeed: Float,
-    ttsVolume: Float,
-    onTtsPitchChange: (Float) -> Unit,
-    onTtsSpeedChange: (Float) -> Unit,
-    onTtsVolumeChange: (Float) -> Unit,
-    isDarkMode: Boolean,
-    onDarkModeChange: (Boolean) -> Unit,
-    explainEnabled: Boolean,
-    onExplainChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
-) {
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                "Sprachassistent",
-                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)
-            )
-            Button(
-                onClick = onListenClick,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🎤", style = TextStyle(fontSize = 22.sp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sprechen", style = TextStyle(fontSize = 18.sp))
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-            DisplayCard(
-                title = "Deine Nachricht:",
-                content = spokenText,
-                backgroundColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(48.dp))
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-            DisplayCard(
-                title = "Assistenten-Antwort:",
-                content = assistantResponse,
-                backgroundColor = MaterialTheme.colorScheme.primaryContainer
-            )
-            if (explainEnabled && explanation.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = { onExplainChange(!explainEnabled) }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("ℹ️", style = TextStyle(fontSize = 20.sp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = if (explainEnabled) "Erklärung ausblenden" else "Erklärung anzeigen",
-                                style = TextStyle(fontSize = 14.sp)
-                            )
-                        }
-                    }
-                }
-                AnimatedVisibility(
-                    visible = explainEnabled,
-                    enter = fadeIn(),
-                    exit = fadeOut()
-                ) {
-                    DisplayCard(
-                        title = "Erklärung:",
-                        content = explanation,
-                        backgroundColor = MaterialTheme.colorScheme.tertiaryContainer
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.weight(1f))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                ActionButton(onClick = onRepeatClick, icon = "🔄", text = "Wiederholen")
-                ActionButton(onClick = onSettingsClick, icon = "⚙️", text = "Einstellungen")
-            }
-        }
-        if (showSettingsDialog) {
-            SettingsDialog(
+        if (isLandscape) {
+            // Bei Landscape-Modus: nutze LandscapeUserInterface
+            LandscapeUserInterface(
+                spokenText = spokenText,
+                assistantResponse = assistantResponse,
+                explanation = explanation,
+                isLoading = isLoading,
+                onListenClick = onListenClick,
+                onRepeatClick = onRepeatClick,
+                onSettingsClick = onSettingsClick,
+                showSettingsDialog = showSettingsDialog,
+                onDismissSettings = onDismissSettings,
                 ttsPitch = ttsPitch,
                 ttsSpeed = ttsSpeed,
                 ttsVolume = ttsVolume,
-                isDarkMode = isDarkMode,
                 onTtsPitchChange = onTtsPitchChange,
                 onTtsSpeedChange = onTtsSpeedChange,
                 onTtsVolumeChange = onTtsVolumeChange,
+                isDarkMode = isDarkMode,
                 onDarkModeChange = onDarkModeChange,
                 explainEnabled = explainEnabled,
-                onExplainChange = onExplainChange,
-                onDismiss = onDismissSettings
+                onExplainChange = onExplainChange
+            )
+        } else {
+            // Bei Portrait-Modus: nutze PortraitUserInterface
+            PortraitUserInterface(
+                spokenText = spokenText,
+                assistantResponse = assistantResponse,
+                explanation = explanation,
+                isLoading = isLoading,
+                onListenClick = onListenClick,
+                onRepeatClick = onRepeatClick,
+                onSettingsClick = onSettingsClick,
+                showSettingsDialog = showSettingsDialog,
+                onDismissSettings = onDismissSettings,
+                ttsPitch = ttsPitch,
+                ttsSpeed = ttsSpeed,
+                ttsVolume = ttsVolume,
+                onTtsPitchChange = onTtsPitchChange,
+                onTtsSpeedChange = onTtsSpeedChange,
+                onTtsVolumeChange = onTtsVolumeChange,
+                isDarkMode = isDarkMode,
+                onDarkModeChange = onDarkModeChange,
+                explainEnabled = explainEnabled,
+                onExplainChange = onExplainChange
             )
         }
     }
@@ -534,60 +590,141 @@ fun LandscapeUserInterface(
     isDarkMode: Boolean,
     onDarkModeChange: (Boolean) -> Unit,
     explainEnabled: Boolean,
-    onExplainChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    onExplainChange: (Boolean) -> Unit
 ) {
-    Row(modifier = modifier.fillMaxSize().padding(16.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Linke Spalte: Nutzereingabe, Titel & Aktionstasten
         Column(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                "Sprachassistent",
-                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold),
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            Button(
-                onClick = onListenClick,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(8.dp)
+            // Titel und Spracheingabe-Button
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🎤", style = TextStyle(fontSize = 22.sp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sprechen", style = TextStyle(fontSize = 18.sp))
+                Text(
+                    "Sprachassistent",
+                    style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onListenClick,
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .height(64.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("🎤", style = TextStyle(fontSize = 28.sp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Sprechen", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold))
+                    }
                 }
             }
+            // Nutzereingabe ("Deine Nachricht")
             DisplayCard(
                 title = "Deine Nachricht:",
                 content = spokenText,
-                backgroundColor = MaterialTheme.colorScheme.surfaceVariant
+                backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp),
+                scrollable = false
             )
+            // Aktionstasten
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                ActionButton(onClick = onRepeatClick, icon = "🔄", text = "Wiederholen")
-                ActionButton(onClick = onSettingsClick, icon = "⚙️", text = "Einstellungen")
+                ActionButton(
+                    onClick = onRepeatClick,
+                    icon = "🔄",
+                    text = "Wiederholen",
+                    modifier = Modifier.weight(1f)
+                )
+                ActionButton(
+                    onClick = onSettingsClick,
+                    icon = "⚙️",
+                    text = "Einstellungen",
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        // Rechte Spalte: Assistenten-Antwort und Erklärung
         Column(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.Top
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(48.dp))
-                Spacer(modifier = Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
+            // Assistenten-Antwort
             DisplayCard(
                 title = "Assistenten-Antwort:",
                 content = assistantResponse,
-                backgroundColor = MaterialTheme.colorScheme.primaryContainer
+                backgroundColor = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                scrollable = false,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Normal
             )
+            // Erklärung direkt unter der Antwort
+            if (explainEnabled && explanation.isNotEmpty()) {
+                DisplayCard(
+                    title = "Erklärung:",
+                    content = explanation,
+                    backgroundColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
+                    scrollable = true
+                )
+            }
+            // Toggle zur Anzeige der Erklärung (optional)
+            if (explanation.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = { onExplainChange(!explainEnabled) }) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("ℹ️", style = TextStyle(fontSize = 20.sp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (explainEnabled) "Erklärung ausblenden" else "Erklärung anzeigen",
+                                style = TextStyle(fontSize = 14.sp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
     if (showSettingsDialog) {
@@ -607,13 +744,19 @@ fun LandscapeUserInterface(
     }
 }
 
+
+// Verbesserte DisplayCard mit optionalem Scrolling
 @Composable
 fun DisplayCard(
     title: String,
     content: String,
-    backgroundColor: Color
+    backgroundColor: Color,
+    modifier: Modifier = Modifier,
+    scrollable: Boolean = false,
+    fontSize: TextUnit = 16.sp,
+    fontWeight: FontWeight = FontWeight.Normal
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = title,
             style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium),
@@ -622,34 +765,62 @@ fun DisplayCard(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 4.dp)
+                .defaultMinSize(minHeight = 80.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .border(width = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp)),
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp)
+                ),
             color = backgroundColor
         ) {
-            Text(
-                text = if (content.isEmpty()) "Warte auf Eingabe..." else content,
-                style = TextStyle(fontSize = 16.sp),
-                modifier = Modifier.padding(12.dp)
-            )
+            if (scrollable) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 80.dp)
+                ) {
+                    val scrollState = rememberScrollState()
+                    Text(
+                        text = if (content.isEmpty()) "Warte auf Eingabe..." else content,
+                        style = TextStyle(fontSize = fontSize, fontWeight = fontWeight),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                            .verticalScroll(scrollState)
+                    )
+                }
+            } else {
+                Text(
+                    text = if (content.isEmpty()) "Warte auf Eingabe..." else content,
+                    style = TextStyle(fontSize = fontSize, fontWeight = fontWeight),
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
         }
     }
 }
 
+// Verbesserte ActionButton-Komponente
 @Composable
 fun ActionButton(
     onClick: () -> Unit,
     icon: String,
-    text: String
+    text: String,
+    modifier: Modifier = Modifier
 ) {
     OutlinedButton(
         onClick = onClick,
-        modifier = Modifier.padding(horizontal = 8.dp)
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(8.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
             Text(text = icon, style = TextStyle(fontSize = 20.sp))
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text)
+            Text(text = text, style = TextStyle(fontSize = 14.sp))
         }
     }
 }
