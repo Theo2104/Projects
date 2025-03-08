@@ -48,6 +48,28 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.util.Locale
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+
+
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.unit.dp
 
 class MainActivity : ComponentActivity() {
 
@@ -403,9 +425,10 @@ fun PortraitUserInterface(
                     .padding(vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(48.dp),
-                    color = MaterialTheme.colorScheme.primary
+                LoadingSnail(
+                    modifier = Modifier.size(80.dp),
+                    shellColor = MaterialTheme.colorScheme.primary,
+                    bodyColor = MaterialTheme.colorScheme.secondary
                 )
             }
         }
@@ -680,9 +703,10 @@ fun LandscapeUserInterface(
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = MaterialTheme.colorScheme.primary
+                    LoadingSnail(
+                        modifier = Modifier.size(80.dp),
+                        shellColor = MaterialTheme.colorScheme.primary,
+                        bodyColor = MaterialTheme.colorScheme.secondary
                     )
                 }
             }
@@ -981,5 +1005,191 @@ fun SettingsToggle(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors()
         )
+    }
+}
+
+@Composable
+fun LoadingSnail(
+    modifier: Modifier = Modifier,
+    shellColor: Color = MaterialTheme.colorScheme.primary,
+    bodyColor: Color = MaterialTheme.colorScheme.secondary
+) {
+    // Animation für die Rotation
+    val infiniteTransition = rememberInfiniteTransition(label = "snailRotation")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "snailRotation"
+    )
+
+    // Animation für Fühler-Bewegung
+    val antennaWiggle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "antennaWiggle"
+    )
+
+    Box(
+        modifier = modifier.size(80.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(80.dp)) {
+            // Rotiere die gesamte Schnecke
+            rotate(rotation) {
+                // Schneckengehäuse (Spirale)
+                val shellPath = Path().apply {
+                    val centerX = size.width / 2
+                    val centerY = size.height / 2
+
+                    // Spiralförmiges Gehäuse
+                    moveTo(centerX, centerY)
+                    var currentRadius = 5f
+                    var angle = 0f
+                    val radiusIncrement = 2f
+                    val angleIncrement = 15f
+
+                    repeat(24) {
+                        angle += angleIncrement
+                        currentRadius += radiusIncrement
+                        val x = centerX + currentRadius * kotlin.math.cos(Math.toRadians(angle.toDouble())).toFloat()
+                        val y = centerY + currentRadius * kotlin.math.sin(Math.toRadians(angle.toDouble())).toFloat()
+                        lineTo(x, y)
+                    }
+                }
+
+                // Schneckenkörper
+                val bodyPath = Path().apply {
+                    val startX = size.width / 2 - 30f
+                    val startY = size.height / 2 + 5f
+
+                    moveTo(startX, startY)
+                    // Unterteil des Körpers
+                    quadraticBezierTo(
+                        startX - 15f, startY + 10f,
+                        startX - 30f, startY
+                    )
+
+                    // Unterseite des Körpers
+                    quadraticBezierTo(
+                        startX - 40f, startY - 5f,
+                        startX - 35f, startY - 15f
+                    )
+
+                    // Oberseite des Körpers zurück zur Spirale
+                    quadraticBezierTo(
+                        startX - 25f, startY - 25f,
+                        startX - 5f, startY - 10f
+                    )
+
+                    // Verbindung zurück zum Startpunkt
+                    close()
+                }
+
+                // Fühler mit Animation
+                val antennaPath1 = Path().apply {
+                    val startX = size.width / 2 - 35f
+                    val startY = size.height / 2 - 10f
+
+                    moveTo(startX, startY)
+                    quadraticBezierTo(
+                        startX - 10f, startY - 15f - antennaWiggle,
+                        startX - 15f, startY - 25f - antennaWiggle
+                    )
+                }
+
+                val antennaPath2 = Path().apply {
+                    val startX = size.width / 2 - 30f
+                    val startY = size.height / 2 - 13f
+
+                    moveTo(startX, startY)
+                    quadraticBezierTo(
+                        startX - 5f, startY - 15f - antennaWiggle,
+                        startX - 8f, startY - 30f - antennaWiggle
+                    )
+                }
+
+                // Augen
+                val eyeX1 = size.width / 2 - 32f
+                val eyeX2 = size.width / 2 - 24f
+                val eyeY = size.height / 2 - 8f
+
+                // Zeichnen der Elemente
+                drawPath(
+                    path = shellPath,
+                    color = shellColor,
+                    style = Stroke(width = 6f, cap = StrokeCap.Round)
+                )
+
+                drawPath(
+                    path = bodyPath,
+                    color = bodyColor,
+                    style = Stroke(width = 4f, cap = StrokeCap.Round)
+                )
+
+                drawPath(
+                    path = antennaPath1,
+                    color = bodyColor,
+                    style = Stroke(width = 2f, cap = StrokeCap.Round)
+                )
+
+                drawPath(
+                    path = antennaPath2,
+                    color = bodyColor,
+                    style = Stroke(width = 2f, cap = StrokeCap.Round)
+                )
+
+                // Fühlerenden (kleine Kreise)
+                drawCircle(
+                    color = shellColor,
+                    radius = 3f,
+                    center = Offset(
+                        x = size.width / 2 - 15f,
+                        y = size.height / 2 - 25f - antennaWiggle
+                    )
+                )
+
+                drawCircle(
+                    color = shellColor,
+                    radius = 3f,
+                    center = Offset(
+                        x = size.width / 2 - 8f,
+                        y = size.height / 2 - 30f - antennaWiggle
+                    )
+                )
+
+                // Augen
+                drawCircle(
+                    color = Color.Black,
+                    radius = 3f,
+                    center = Offset(eyeX1, eyeY)
+                )
+
+                drawCircle(
+                    color = Color.Black,
+                    radius = 3f,
+                    center = Offset(eyeX2, eyeY)
+                )
+
+                // Schleimspur
+                val trailWidth = 15f
+                val trailHeight = 3f
+                drawOval(
+                    color = Color.LightGray.copy(alpha = 0.5f),
+                    size = Size(trailWidth, trailHeight),
+                    topLeft = Offset(
+                        x = size.width / 2 - 50f,
+                        y = size.height / 2 + 5f
+                    )
+                )
+            }
+        }
     }
 }
