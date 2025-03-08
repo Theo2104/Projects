@@ -274,11 +274,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun processUserInput(input: String) {
+        isLoading.value = true
         val apiService = createRetrofitClient()
         // xAI-Parameter: "explain" entspricht dem Zustand des Toggles
         val requestBody = mapOf("input" to input, "explain" to explainEnabled.toString())
         apiService.getModelResponse(requestBody).enqueue(object : Callback<Map<String, String>> {
             override fun onResponse(call: Call<Map<String, String>>, response: Response<Map<String, String>>) {
+                isLoading.value = false
                 if (response.isSuccessful) {
                     val generatedText = response.body()?.get("response") ?: "Keine Antwort erhalten"
                     assistantResponse.value = generatedText
@@ -289,6 +291,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             override fun onFailure(call: Call<Map<String, String>>, t: Throwable) {
+                isLoading.value = false
                 assistantResponse.value = "Fehler bei der API-Anfrage: ${t.message}"
             }
         })
