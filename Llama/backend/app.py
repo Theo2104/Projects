@@ -28,7 +28,7 @@ conversation_lock = threading.Lock()
 # Executor für parallele Modellaufrufe
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
-# Embedding-Modell (falls benötigt)
+# Embedding-Modell
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 def load_model():
@@ -161,13 +161,17 @@ def process_response(response):
     sentences = re.split(r'(?<=[.!?])\s+', response)
     sentences = [s.strip() for s in sentences if len(s.strip()) > 3]
 
+    # Wenn keine Sätze gefunden wurden, gib einen leeren String zurück
+    if not sentences:
+        return ""
+    
     # Wähle den ersten Satz, der nicht mit "frage:" oder "antwort:" beginnt
     valid_sentence = None
     for s in sentences:
         if not re.search(r'\b(frage|antwort):', s, re.IGNORECASE):
             valid_sentence = s
             break
-    if valid_sentence is None and sentences:
+    if valid_sentence is None:
         valid_sentence = sentences[0]
 
     # Begrenze den Satz auf maximal 15 Wörter
@@ -183,4 +187,4 @@ if __name__ == "__main__":
     load_model()
     with app.app_context():
         warm_up_model()
-    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=True)
+    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=True, use_reloader=False)
