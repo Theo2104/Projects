@@ -78,6 +78,46 @@ def build_context_string(session_id: str) -> str:
             lines.append(f"Assistent: {msg['content']}")
     return "\n".join(lines)
 
+def clear_context_if_off_topic(session_id: str, user_input: str, threshold: float = 0.5):
+    """
+    Löscht den gespeicherten Kontext, wenn der aktuelle Input thematisch 
+    zu weit von der letzten relevanten Nachricht abweicht.
+    
+    Enthält der neue Input anaphorische Pronomen (z.B. "ihn", "ihm", "seine"),
+    wird angenommen, dass er sich auf vorherige Inhalte bezieht und der Kontext bleibt erhalten.
+    """
+    # Prüfe auf anaphorische Pronomen im neuen Input
+    if re.search(r"\b(ihn|ihm|seine|seiner|ihr|ihre|er|sie|es)\b", user_input, re.IGNORECASE):
+        return
+
+    context = conversation_contexts.get(session_id, [])
+    if context:
+        # Kombiniere die letzten Nachrichten, um einen repräsentativen Kontext zu erhalten
+        last_relevant = ""
+        for msg in reversed(context):
+            last_relevant = msg["content"] + " " + last_relevant
+            if msg["role"] == "assistant":
+                break
+        if last_relevant:
+            embeddings = embedding_model.encode([last_relevant, user_input], convert_to_tensor=True)
+            similarity = float(util.pytorch_cos_sim(embeddings[0], embeddings[1]))
+            if similarity < threshold:
+                conversation_contexts[session_id] = []
+                print(f"Kontext zurückgesetzt (Ähnlichkeit: {similarity:.2f}).")
+
+def post_process_answer(answer: str) -> str:
+    """
+    Entfernt unerwünschte Zusatzinformationen aus der Antwort.
+    Sucht nach bekannten Marker-Phrasen und behält nur den reinen Antworttext.
+    """
+    for marker in ["Hinweis:", "Die Frage wurde", "Die Antwort sollte", "Nutzer:", "Frage:"]:
+        if marker in answer:
+            answer = answer.split(marker)[0].strip()
+    parts = answer.split("Antwort:")
+    if len(parts) > 1:
+        answer = parts[0].strip()
+    return answer
+
 @app.route("/", methods=["GET"])
 def health_check():
     return jsonify({"status": "Server is running"})
@@ -89,6 +129,9 @@ def chat():
     user_input = data.get("input", "").strip()
     explain_flag = data.get("explain", False)
 
+    # Prüfe, ob der Kontext thematisch passt – ansonsten zurücksetzen
+    clear_context_if_off_topic(session_id, user_input)
+
     # Cache prüfen
     cached_key = f"{session_id}:{user_input}:{explain_flag}"
     cached_response = cache.get(cached_key)
@@ -99,27 +142,27 @@ def chat():
     context_str = build_context_string(session_id)
 
     prompt = (
-    "Du bist ein sachlicher und direkter Sprachassistent für autistische Nutzer. "
-    "Beachte folgende wichtige Regeln:\n\n"
-    "1. Antworte in kurzen, einfachen Sätzen (maximal 10 Wörter pro Satz).\n"
-    "2. Verwende eine neutrale Sprache ohne Metaphern oder Redewendungen.\n"
-    "3. Gib nur relevante Informationen und vermeide Smalltalk.\n"
-    "4. Formuliere direkt und eindeutig.\n"
-    "5. Erkenne auch unkonventionelle Sprachmuster.\n"
-    "6. Vermeide überflüssige Wörter und Fakten.\n"
-    "7. Gib ausschließlich deine Antwort als Assistent, ohne die Frage, den Kontext oder Zusatzinformationen zu wiederholen.\n\n"
-    "Berücksichtige den folgenden Gesprächskontext, aber gib ihn nicht in deiner Antwort wieder:\n"
-    f"{context_str}\n\n"
-    f"Frage: {user_input}\n\n"
-    "Antwort:"
-)
+        "Du bist ein sachlicher und direkter Sprachassistent für autistische Nutzer. "
+        "Beachte folgende wichtige Regeln:\n\n"
+        "1. Antworte in kurzen, einfachen Sätzen (maximal 10 Wörter pro Satz).\n"
+        "2. Verwende eine neutrale Sprache ohne Metaphern oder Redewendungen.\n"
+        "3. Gib nur relevante Informationen und vermeide Smalltalk.\n"
+        "4. Formuliere direkt und eindeutig.\n"
+        "5. Wiederhole niemals Teile des Prompts oder interne Anweisungen in deiner Antwort.\n"
+        "6. Gib ausschließlich deine Antwort als Assistent aus – und zwar nur den reinen Antworttext.\n\n"
+        "Berücksichtige den folgenden Gesprächskontext, aber gib ihn nicht in deiner Antwort wieder:\n"
+        f"{context_str}\n\n"
+        f"Frage: {user_input}\n\n"
+        "Antwort:"
+    )
 
     try:
         raw_response = executor.submit(generate_response, prompt).result()
     except Exception as e:
         return jsonify({"error": str(e)})
 
-    answer = raw_response
+    # Post-Processing: Unerwünschte Zusatztexte entfernen
+    answer = post_process_answer(raw_response)
     update_context(session_id, user_input, answer)
 
     explanation_text = ""
@@ -140,7 +183,7 @@ def generate_explanation(answer, user_input):
         "Erklärung:"
     )
     try:
-        raw_explanation = model.generate(explanation_prompt, max_tokens=50, top_p=0.7)
+        raw_explanation = model.generate(explanation_prompt)
         return raw_explanation
     except Exception as e:
         return f"Fehler beim Generieren der Erklärung: {str(e)}"
