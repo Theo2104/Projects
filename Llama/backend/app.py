@@ -43,15 +43,15 @@ def warm_up_model():
     """Pre-Warming des Modells."""
     try:
         print("Warming up the model...")
-        _ = executor.submit(generate_response, "Warming up", 10, 0.7).result()
+        _ = executor.submit(generate_response, "Warming up").result()
         print("Model pre-warming successful.")
     except Exception as e:
         print("Model pre-warming failed:", e)
 
-def generate_response(prompt, max_tokens, top_p):
+def generate_response(prompt):
     """Generiert eine Antwort thread-sicher."""
     with model_lock:
-        return model.generate(prompt, max_tokens=max_tokens, top_p=top_p)
+        return model.generate(prompt)
 
 def update_context(session_id: str, user_input: str, answer: str):
     """Speichert den Gesprächskontext als strukturierte Liste."""
@@ -99,25 +99,27 @@ def chat():
     context_str = build_context_string(session_id)
 
     prompt = (
-        "Du bist ein sachlicher und direkter Sprachassistent für autistische Nutzer. "
-        "Beachte folgende wichtige Regeln:\n\n"
-        "1. Antworte in kurzen, einfachen Sätzen (maximal 10 Wörter pro Satz).\n"
-        "2. Verwende eine neutrale Sprache ohne Metaphern oder Redewendungen.\n"
-        "3. Gib nur relevante Informationen und vermeide Smalltalk.\n"
-        "4. Formuliere direkt und eindeutig.\n"
-        "5. Erkenne auch unkonventionelle Sprachmuster.\n"
-        "6. Vermeide überflüssige Wörter und Fakten.\n"
-        "7. Gib ausschließlich deine Antwort als Assistent, ohne die Frage oder den Kontext zu wiederholen.\n\n"
-        f"Gesprächskontext:\n{context_str}\n\n"
-        f"Frage: {user_input}"
-    )
+    "Du bist ein sachlicher und direkter Sprachassistent für autistische Nutzer. "
+    "Beachte folgende wichtige Regeln:\n\n"
+    "1. Antworte in kurzen, einfachen Sätzen (maximal 10 Wörter pro Satz).\n"
+    "2. Verwende eine neutrale Sprache ohne Metaphern oder Redewendungen.\n"
+    "3. Gib nur relevante Informationen und vermeide Smalltalk.\n"
+    "4. Formuliere direkt und eindeutig.\n"
+    "5. Erkenne auch unkonventionelle Sprachmuster.\n"
+    "6. Vermeide überflüssige Wörter und Fakten.\n"
+    "7. Gib ausschließlich deine Antwort als Assistent, ohne die Frage, den Kontext oder Zusatzinformationen zu wiederholen.\n\n"
+    "Berücksichtige den folgenden Gesprächskontext, aber gib ihn nicht in deiner Antwort wieder:\n"
+    f"{context_str}\n\n"
+    f"Frage: {user_input}\n\n"
+    "Antwort:"
+)
 
     try:
-        raw_response = executor.submit(generate_response, prompt, 50, 0.7).result()
+        raw_response = executor.submit(generate_response, prompt).result()
     except Exception as e:
         return jsonify({"error": str(e)})
 
-    answer = process_response(raw_response)
+    answer = raw_response
     update_context(session_id, user_input, answer)
 
     explanation_text = ""
@@ -139,49 +141,9 @@ def generate_explanation(answer, user_input):
     )
     try:
         raw_explanation = model.generate(explanation_prompt, max_tokens=50, top_p=0.7)
-        return process_response(raw_explanation)
+        return raw_explanation
     except Exception as e:
         return f"Fehler beim Generieren der Erklärung: {str(e)}"
-
-def process_response(response):
-    """
-    Bereinigt und optimiert die Antwort für autistische Nutzer.
-    Falls das Token-Limit (ca. 50 Tokens) erreicht wurde, wird der letzte Satz entfernt.
-    Zudem wird nur der erste Satz übernommen, der keine Markierungen wie 'Frage:' oder 'Antwort:' enthält.
-    Die Ausgabe wird auf maximal 15 Wörter begrenzt.
-    """
-    response = response.strip()
-    # Entferne führende Präfixe
-    prefixes = ["antwort:", "assistent:", "Antwort:", "Assistent:"]
-    for prefix in prefixes:
-        if response.lower().startswith(prefix):
-            response = response[len(prefix):].strip()
-
-    # Aufteilen in Sätze
-    sentences = re.split(r'(?<=[.!?])\s+', response)
-    sentences = [s.strip() for s in sentences if len(s.strip()) > 3]
-
-    # Wenn keine Sätze gefunden wurden, gib einen leeren String zurück
-    if not sentences:
-        return ""
-    
-    # Wähle den ersten Satz, der nicht mit "frage:" oder "antwort:" beginnt
-    valid_sentence = None
-    for s in sentences:
-        if not re.search(r'\b(frage|antwort):', s, re.IGNORECASE):
-            valid_sentence = s
-            break
-    if valid_sentence is None:
-        valid_sentence = sentences[0]
-
-    # Begrenze den Satz auf maximal 15 Wörter
-    words = valid_sentence.split()
-    if len(words) > 15:
-        valid_sentence = ' '.join(words[:15]) + '.'
-    elif not valid_sentence.endswith(('.', '!', '?')):
-        valid_sentence += '.'
-
-    return valid_sentence.strip()
 
 if __name__ == "__main__":
     load_model()
