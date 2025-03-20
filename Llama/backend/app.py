@@ -78,7 +78,7 @@ def build_context_string(session_id: str) -> str:
             lines.append(f"Assistent: {msg['content']}")
     return "\n".join(lines)
 
-def clear_context_if_off_topic(session_id: str, user_input: str, threshold: float = 0.5):
+def clear_context_if_off_topic(session_id: str, user_input: str, threshold: float = 0.4):
     """
     Löscht den gespeicherten Kontext, wenn der aktuelle Input thematisch 
     zu weit von der letzten relevanten Nachricht abweicht.
