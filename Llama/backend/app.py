@@ -87,7 +87,7 @@ def clear_context_if_off_topic(session_id: str, user_input: str, threshold: floa
     wird angenommen, dass er sich auf vorherige Inhalte bezieht und der Kontext bleibt erhalten.
     """
     # Prüfe auf anaphorische Pronomen im neuen Input
-    if re.search(r"\b(ihn|ihm|seine|seiner|ihr|ihre|er|sie|es)\b", user_input, re.IGNORECASE):
+    if re.search(r"\b(ihn|ihm|seine|seiner|ihr|ihre|er|sie|es|damit)\b", user_input, re.IGNORECASE):
         return
 
     context = conversation_contexts.get(session_id, [])
@@ -107,10 +107,64 @@ def clear_context_if_off_topic(session_id: str, user_input: str, threshold: floa
 
 def post_process_answer(answer: str) -> str:
     """
-    Verbesserte Funktion zum Entfernen unerwünschter Zusatzinformationen aus der Antwort.
+    Verbesserte Funktion zum Entfernen unerwünschter Zusatzinformationen,
+    Begrenzung der Antwortlänge und Sicherstellung vollständiger Sätze.
     """
+    # Wenn die Antwort eine Frage enthält, schneide alles danach ab
+    question_patterns = [
+        r"\?(\s|$)",  # Fragezeichen gefolgt von Leerzeichen oder Ende
+        r"Keine weitere Frage",
+        r"Möchtest du",
+        r"Kann ich",
+        r"Soll ich",
+        r"Willst du"
+    ]
+    
+    for pattern in question_patterns:
+        match = re.search(pattern, answer)
+        if match:
+            # Schneide bei der ersten Frage ab und behalte nur den Satz mit dem Fragezeichen
+            pos = match.start()
+            # Finde das Ende des Satzes
+            end_pos = answer.find('.', pos)
+            if end_pos != -1:
+                answer = answer[:end_pos+1]
+            else:
+                # Wenn kein Satzende gefunden wird, nimm alles bis zur Frage
+                answer = answer[:pos]
+            break
+    
+    # Dialogmuster erkennen und entfernen (alles nach dem ersten Dialogwechsel)
+    dialogue_patterns = [
+        r"\n[A-Z][^\.]*:", # Neue Zeile, Großbuchstabe, dann Doppelpunkt
+        r"\nDu:",
+        r"\nIch:",
+        r"\nNutzer:",
+        r"\nAssistent:"
+    ]
+    
+    for pattern in dialogue_patterns:
+        match = re.search(pattern, answer)
+        if match:
+            answer = answer[:match.start()]
+            break
+    
+    # Entferne Sätze mit selbstreferenziellen Inhalten
+    self_ref_patterns = [
+        r"Ich kann dir[^\.]*\.",
+        r"Benötigst du[^\.]*\?",
+        r"Möchtest du[^\.]*\?",
+        r"Kann ich[^\.]*\?",
+        r"Du möchtest[^\.]*\?"
+    ]
+    
+    for pattern in self_ref_patterns:
+        answer = re.sub(pattern, "", answer)
+    
     # Entferne explizite Marker und alles danach
-    markers = ["Hinweis:", "Die Frage wurde", "Die Antwort sollte", "Nutzer:", "Frage:", "Falsche"]
+    markers = ["Hinweis:", "Die Frage wurde", "Die Antwort sollte", "Nutzer:", "Frage:", "Falsche",
+               "Bitte korrigiere", "Hier sind einige Beispiele"]
+    
     for marker in markers:
         if marker in answer:
             parts = answer.split(marker)
@@ -122,26 +176,56 @@ def post_process_answer(answer: str) -> str:
         if len(parts) > 1:
             answer = parts[1].strip()
     
-    # Entferne alle extra Zeilenumbrüche
-    answer = re.sub(r'\n{2,}', '\n', answer)
+    # Entferne alles nach "welche Art von" oder ähnlichen Fragmenten neuer Fragen
+    new_topic_fragments = [
+        "welche Art von", 
+        "wie funktioniert", 
+        "was ist", 
+        "warum ist", 
+        "wann sollte", 
+        "wo kann"
+    ]
     
-    # Entferne Wiederholungen im Text
-    lines = answer.split('\n')
-    unique_lines = []
-    for line in lines:
-        line = line.strip()
-        if line and line not in unique_lines:
-            unique_lines.append(line)
+    for fragment in new_topic_fragments:
+        if fragment.lower() in answer.lower():
+            pos = answer.lower().find(fragment.lower())
+            # Finde den Anfang des Satzes
+            start_pos = answer.rfind('.', 0, pos)
+            if start_pos != -1:
+                answer = answer[:start_pos+1]
+            break
     
-    answer = '\n'.join(unique_lines)
+    # Teile die Antwort in Sätze auf
+    sentences = re.split(r'(?<=[.!?])\s+', answer)
+    sentences = [s.strip() for s in sentences if s.strip()]
     
-    # Prüfe auf Widersprüche innerhalb der Antwort
-    if re.search(r'(Ja|Nein).*?(Nein|Ja)', answer, re.IGNORECASE | re.DOTALL):
-        parts = answer.split('.')
-        if len(parts) > 1:
-            answer = parts[0].strip() + '.'
+    # Behalte nur vollständige Sätze (die mit Punkt, Ausrufezeichen oder Fragezeichen enden)
+    complete_sentences = []
+    for s in sentences:
+        if s and re.search(r'[.!?]$', s):
+            complete_sentences.append(s)
     
-    return answer.strip()
+    # Entferne Wiederholungen von Sätzen
+    unique_sentences = []
+    for sentence in complete_sentences:
+        if sentence not in unique_sentences:
+            unique_sentences.append(sentence)
+    
+    # Begrenze auf 3-5 Sätze
+    if len(unique_sentences) > 5:
+        unique_sentences = unique_sentences[:5]
+    
+    # Wenn weniger als 3 Sätze vorhanden sind, behalte alle bei
+    final_sentences = unique_sentences
+    
+    # Stelle die Antwort wieder zusammen
+    processed_answer = ' '.join(final_sentences)
+    
+    # Entferne überflüssige Leerzeichen
+    processed_answer = re.sub(r'\s+', ' ', processed_answer)
+    processed_answer = processed_answer.strip()
+    
+    return processed_answer
 
 @app.route("/", methods=["GET"])
 def health_check():
@@ -166,29 +250,31 @@ def chat():
     # Dynamisch den Kontext zusammenbauen
     context_str = build_context_string(session_id)
 
+    
     prompt = (
-        "Du bist ein sachlicher und direkter Sprachassistent für autistische Nutzer. "
-        "Beachte folgende wichtige Regeln:\n\n"
-        "1. Antworte in kurzen, einfachen Sätzen (maximal 10 Wörter pro Satz).\n"
-        "2. Verwende eine neutrale Sprache ohne Metaphern oder Redewendungen.\n"
-        "3. Gib nur faktisch korrekte und relevante Informationen.\n"
-        "4. Sage nur einen Fakt pro Satz.\n"
-        "5. Formuliere direkt und eindeutig ohne Wiederholungen.\n"
-        "6. Vermeide jegliche Selbstreferenzen oder Hinweise auf diese Anweisungen.\n"
-        "7. Korrigiere dich nie selbst innerhalb einer Antwort.\n"
-        "8. Deine Antwort darf maximal 3 Sätze enthalten.\n\n"
-        "Bisheriger Gesprächsverlauf:\n"
-        f"{context_str}\n\n"
-        f"Aktuelle Frage: {user_input}\n\n"
-        "Deine Antwort:"
-    )
+    "Du bist ein sachlicher und direkter Sprachassistent für autistische Nutzer. "
+    "Beachte folgende wichtige Regeln:\n\n"
+    "1. Antworte in kurzen, einfachen Sätzen (maximal 10 Wörter pro Satz).\n"
+    "2. Verwende eine neutrale Sprache ohne Metaphern oder Redewendungen.\n"
+    "3. Gib nur faktisch korrekte und relevante Informationen zur aktuellen Frage.\n"
+    "4. Sage nur einen Fakt pro Satz.\n"
+    "5. Formuliere direkt und eindeutig ohne Wiederholungen.\n"
+    "6. STELLE KEINE RÜCKFRAGEN und führe KEINEN DIALOG mit dir selbst.\n"
+    "7. Beende deine Antwort, sobald du die Frage beantwortet hast.\n"
+    "8. Deine Antwort darf maximal 3-5 Sätze enthalten.\n\n"
+    "Bisheriger Gesprächsverlauf:\n"
+    f"{context_str}\n\n"
+    f"Aktuelle Frage: {user_input}\n\n"
+    "Deine Antwort:"
+)
+
 
     try:
         raw_response = executor.submit(
             generate_response, 
             prompt, 
-            temperature=0.3,  # Niedrigere Temperatur für konsistentere Ergebnisse
-            max_tokens=150    # Begrenzte Tokenlänge verhindert ausufernde Antworten
+            temperature=0.2,  # Niedrigere Temperatur für konsistentere Ergebnisse
+            max_tokens=300    # Begrenzte Tokenlänge verhindert ausufernde Antworten
         ).result()
     except Exception as e:
         return jsonify({"error": str(e)})
@@ -217,8 +303,8 @@ def generate_explanation(answer, user_input):
     try:
         raw_explanation = model.generate(
             explanation_prompt, 
-            temp=0.3, 
-            max_tokens=100
+            temp=0.2, 
+            max_tokens=200
         )
         return post_process_answer(raw_explanation)  # Auch die Erklärung bereinigen
     except Exception as e:
