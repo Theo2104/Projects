@@ -211,9 +211,6 @@ def post_process_answer(answer: str) -> str:
         if sentence not in unique_sentences:
             unique_sentences.append(sentence)
     
-    # Begrenze auf 3-5 Sätze
-    if len(unique_sentences) > 5:
-        unique_sentences = unique_sentences[:5]
     
     # Wenn weniger als 3 Sätze vorhanden sind, behalte alle bei
     final_sentences = unique_sentences
@@ -252,17 +249,7 @@ def chat():
 
     
     prompt = (
-    "Du bist ein sachlicher und direkter Sprachassistent für autistische Nutzer. "
-    "Beachte folgende wichtige Regeln:\n\n"
-    "1. Antworte in kurzen, einfachen Sätzen (maximal 10 Wörter pro Satz).\n"
-    "2. Verwende eine neutrale Sprache ohne Metaphern oder Redewendungen.\n"
-    "3. Gib nur faktisch korrekte und relevante Informationen zur aktuellen Frage.\n"
-    "4. Sage nur einen Fakt pro Satz.\n"
-    "5. Formuliere direkt und eindeutig ohne Wiederholungen.\n"
-    "6. STELLE KEINE RÜCKFRAGEN und führe KEINEN DIALOG mit dir selbst.\n"
-    "7. Beende deine Antwort, sobald du die Frage beantwortet hast.\n"
-    "8. Deine Antwort darf maximal 3-5 Sätze enthalten.\n\n"
-    "Bisheriger Gesprächsverlauf:\n"
+    "Du bist ein hilfreicher Assistent. Beantworte die folgende Frage:"
     f"{context_str}\n\n"
     f"Aktuelle Frage: {user_input}\n\n"
     "Deine Antwort:"
