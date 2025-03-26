@@ -48,18 +48,38 @@ def warm_up_model():
     except Exception as e:
         print("Model pre-warming failed:", e)
 
-def generate_response(prompt, temperature=0.7, max_tokens=512):
-    """Generiert eine Antwort thread-sicher mit kontrollierten Parametern."""
+def generate_response(prompt, communication_mode='default', temperature=0.2, max_tokens=300):
+    """Generiert eine Antwort mit modalitätsabhängigen Parametern."""
+    mode_settings = {
+        'default': {'temp': 0.2, 'max_tokens': 300},
+        'precise': {'temp': 0.1, 'max_tokens': 200},
+        'detailed': {'temp': 0.3, 'max_tokens': 700}
+    }
+    
+    settings = mode_settings.get(communication_mode, mode_settings['default'])
+    
     with model_lock:
-        return model.generate(prompt, temp=temperature, max_tokens=max_tokens)
+        return model.generate(
+            prompt, 
+            temp=settings['temp'], 
+            max_tokens=settings['max_tokens']
+        )
 
-def update_context(session_id: str, user_input: str, answer: str):
-    """Speichert den Gesprächskontext als strukturierte Liste."""
+def update_context(session_id: str, user_input: str, answer: str, communication_mode: str):
+    """Speichert den Gesprächskontext mit Kommunikationsmodus."""
     with conversation_lock:
         context = conversation_contexts.get(session_id, [])
-        context.append({"role": "user", "content": user_input})
-        context.append({"role": "assistant", "content": answer})
-        # Begrenze den Kontext auf die letzten 10 Nachrichten (5 Austausche)
+        context.append({
+            "role": "user", 
+            "content": user_input,
+            "mode": communication_mode
+        })
+        context.append({
+            "role": "assistant", 
+            "content": answer,
+            "mode": communication_mode
+        })
+        # Begrenze den Kontext
         if len(context) > 10:
             context = context[-10:]
         conversation_contexts[session_id] = context
@@ -227,6 +247,76 @@ def post_process_answer(answer: str) -> str:
     
     return processed_answer
 
+
+def generate_dynamic_prompt(user_input, context_str, communication_mode='default'):
+    """
+    Erzeugt einen dynamischen Prompt, der den perfekten Prompt für neurodiverse Kommunikation
+    integriert. Dieser Prompt kombiniert die festgelegten Kommunikationsprinzipien mit dem 
+    aktuellen Gesprächskontext und der Nutzeranfrage.
+    """
+    # Perfekter Prompt für autistische Nutzer (auf Englisch)
+    perfect_prompt = (
+        "Communication Protocol for Neurodiverse Interaction:\n\n"
+        "1. Analyze the core question precisely:\n"
+        "   - Identify and list the key elements of the question.\n"
+        "   - Break down any complex instructions into the smallest possible steps.\n\n"
+        "2. Use literal, direct language:\n"
+        "   - Avoid idioms, metaphors, or ambiguous expressions.\n"
+        "   - Express all ideas in a clear, factual manner with concrete examples when necessary.\n\n"
+        "3. Provide structured, step-by-step explanations:\n"
+        "   - Present information using numbered steps and bullet points.\n"
+        "   - Ensure each step is sequential and builds logically on the previous one.\n"
+        "   - Include observable details and explicit descriptions for every instruction.\n\n"
+        "4. Maintain consistency and validate understanding:\n"
+        "   - Continuously check that every part of your response aligns with the original question.\n"
+        "   - Summarize the key points at the end and ask for confirmation or if further clarification is needed.\n\n"
+        "5. Prioritize factual and objective information:\n"
+        "   - Limit emotional language and subjective interpretations.\n"
+        "   - Ensure that every statement is supported by objective data or clearly defined reasoning.\n\n"
+        "Response configuration:\n"
+        "- Sentence count: Use 3-5 clear, complete sentences per answer.\n"
+        "- Complexity: Keep the language simple and direct.\n"
+        "- Style: Structured, factual, and sequential.\n\n"
+        "Your Answer:\n"
+    )
+    
+    # Anpassung je nach Kommunikationsmodus
+    communication_modes = {
+        'default': {
+            'length': 3,
+            'complexity': 'neutral',
+            'style': 'direct'
+        },
+        'precise': {
+            'length': 2,
+            'complexity': 'low',
+            'style': 'scientific'
+        },
+        'detailed': {
+            'length': 5,
+            'complexity': 'high',
+            'style': 'structured'
+        }
+    }
+    
+    mode = communication_modes.get(communication_mode, communication_modes['default'])
+    
+    dynamic_prompt = (
+        f"{perfect_prompt}"
+        f"---\nKommunikationsanforderungen:\n"
+        f"- Satzanzahl: {mode['length']}\n"
+        f"- Komplexitätslevel: {mode['complexity']}\n"
+        f"- Stil: {mode['style']}\n\n"
+        f"Bisheriger Kontext:\n{context_str}\n\n"
+        f"Aktuelle Frage: {user_input}\n\n"
+        "Wichtige Regeln:\n"
+        "- Keine Selbstüberprüfung oder Meta-Kommentare.\n"
+        "- Halte die Antwort präzise und ohne unnötige Wiederholungen.\n\n"
+        "Antwort:"
+    )
+    
+    return dynamic_prompt
+
 @app.route("/", methods=["GET"])
 def health_check():
     return jsonify({"status": "Server is running"})
@@ -237,12 +327,13 @@ def chat():
     session_id = data.get("session_id", "default_user")
     user_input = data.get("input", "").strip()
     explain_flag = data.get("explain", False)
+    communication_mode = data.get("mode", 'default')
 
     # Prüfe, ob der Kontext thematisch passt – ansonsten zurücksetzen
     clear_context_if_off_topic(session_id, user_input)
 
     # Cache prüfen
-    cached_key = f"{session_id}:{user_input}:{explain_flag}"
+    cached_key = f"{session_id}:{user_input}:{explain_flag}:{communication_mode}"
     cached_response = cache.get(cached_key)
     if cached_response:
         return jsonify(cached_response)
@@ -250,64 +341,58 @@ def chat():
     # Dynamisch den Kontext zusammenbauen
     context_str = build_context_string(session_id)
 
-    
-    prompt = (
-    "Du bist ein sachlicher und direkter Sprachassistent für autistische Nutzer. "
-    "Beachte folgende wichtige Regeln:\n\n"
-    "1. Antworte in kurzen, einfachen Sätzen\n"
-    "2. Verwende eine neutrale Sprache ohne Metaphern oder Redewendungen.\n"
-    "3. Gib nur faktisch korrekte und relevante Informationen zur aktuellen Frage.\n"
-    "4. Sage nur einen Fakt pro Satz.\n"
-    "5. Formuliere direkt und eindeutig ohne Wiederholungen.\n"
-    "6. STELLE KEINE RÜCKFRAGEN und führe KEINEN DIALOG mit dir selbst.\n"
-    "7. Beende deine Antwort, sobald du die Frage beantwortet hast.\n"
-    "8. Deine Antwort darf maximal 3-5 Sätze enthalten.\n"
-    "9. Deine Sätze dürfen maximal 10 Wörter lang sein.\n"
-    "Bisheriger Gesprächsverlauf:\n"
-    f"{context_str}\n\n"
-    f"Aktuelle Frage: {user_input}\n\n"
-    "Deine Antwort:"
-)
-
+    prompt = generate_dynamic_prompt(
+        user_input, 
+        context_str, 
+        communication_mode
+    )
 
     try:
         raw_response = executor.submit(
             generate_response, 
             prompt, 
-            temperature=0.2,  # Niedrigere Temperatur für konsistentere Ergebnisse
-            max_tokens=300    # Begrenzte Tokenlänge verhindert ausufernde Antworten
+            temperature=0.3,  # Niedrigere Temperatur für konsistentere Ergebnisse
+            max_tokens=500    # Begrenzte Tokenlänge verhindert ausufernde Antworten
         ).result()
     except Exception as e:
         return jsonify({"error": str(e)})
 
     # Post-Processing: Unerwünschte Zusatztexte entfernen
     answer = post_process_answer(raw_response)
-    update_context(session_id, user_input, answer)
+    update_context(session_id, user_input, answer, communication_mode)
 
     explanation_text = ""
     if explain_flag:
-        explanation_text = generate_explanation(answer, user_input)
+        explanation_text = generate_explanation(answer, user_input, communication_mode)
 
     response_data = {"response": answer, "explanation": explanation_text}
     cache.set(cached_key, response_data, timeout=300)
 
     return jsonify(response_data)
 
-def generate_explanation(answer, user_input):
-    """Generiert eine einfache Erklärung für die Antwort mit verbesserter Anweisung."""
+def generate_explanation(answer, user_input, communication_mode):
+    """Generiert eine kontextabhängige Erklärung."""
+    explanation_styles = {
+        'default': "Erkläre kurz und einfach.",
+        'precise': "Gib eine wissenschaftlich präzise Erklärung.",
+        'detailed': "Biete eine strukturierte, schrittweise Erklärung."
+    }
+    
     explanation_prompt = (
-        "Erkläre kurz und einfach, warum diese Antwort für einen autistischen Nutzer hilfreich ist:\n"
+        f"{explanation_styles.get(communication_mode, explanation_styles['default'])}\n"
+        f"Kommunikationsmodus: {communication_mode}\n"
         f"Frage: {user_input}\n"
         f"Antwort: {answer}\n\n"
-        "Beschränke dich auf maximal 2 einfache Sätze. Deine Erklärung:"
+        "Deine Erklärung:"
     )
+    
     try:
         raw_explanation = model.generate(
             explanation_prompt, 
             temp=0.2, 
             max_tokens=200
         )
-        return post_process_answer(raw_explanation)  # Auch die Erklärung bereinigen
+        return post_process_answer(raw_explanation)
     except Exception as e:
         return f"Fehler bei der Erklärung: {str(e)}"
 
@@ -315,4 +400,4 @@ if __name__ == "__main__":
     load_model()
     with app.app_context():
         warm_up_model()
-    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=True)
