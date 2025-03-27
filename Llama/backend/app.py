@@ -393,9 +393,9 @@ def chat():
 def generate_explanation(answer, user_input, communication_mode):
     """Generiert eine kontextabhängige Erklärung."""
     explanation_styles = {
-        'default': "Erkläre kurz und einfach.",
-        'precise': "Gib eine wissenschaftlich präzise Erklärung.",
-        'detailed': "Biete eine strukturierte, schrittweise Erklärung."
+        'default': "Erkläre kurz und einfach deine Ausgabe.",
+        'precise': "Gib eine wissenschaftlich präzise Erklärung für deine Ausgabe.",
+        'detailed': "Biete eine strukturierte, schrittweise Erklärung deiner Ausgabe."
     }
     
     explanation_prompt = (
@@ -420,4 +420,4 @@ if __name__ == "__main__":
     load_model()
     with app.app_context():
         warm_up_model()
-    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=True)
+    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=False, use_reloader=False)
