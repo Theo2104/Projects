@@ -48,12 +48,12 @@ def warm_up_model():
     except Exception as e:
         print("Model pre-warming failed:", e)
 
-def generate_response(prompt, communication_mode='default', temperature=0.2, max_tokens=300):
+def generate_response(prompt, communication_mode='default'):
     """Generiert eine Antwort mit modalitätsabhängigen Parametern."""
     mode_settings = {
-        'default': {'temp': 0.2, 'max_tokens': 300},
-        'precise': {'temp': 0.1, 'max_tokens': 200},
-        'detailed': {'temp': 0.3, 'max_tokens': 700}
+        'default': {'temp': 0.1, 'max_tokens': 400},
+        'precise': {'temp': 0.05, 'max_tokens': 200},
+        'detailed': {'temp': 0.15, 'max_tokens': 700},
     }
     
     settings = mode_settings.get(communication_mode, mode_settings['default'])
@@ -128,11 +128,26 @@ def clear_context_if_off_topic(session_id: str, user_input: str, threshold: floa
 def post_process_answer(answer: str) -> str:
     """
     Verbesserte Funktion zum Entfernen unerwünschter Zusatzinformationen,
-    Begrenzung der Antwortlänge und Sicherstellung vollständiger Sätze.
+    wie interner Instruktionen, Gedankengänge und Bewertungen des Modells,
+    sowie zur Sicherstellung vollständiger Sätze.
     """
-    # Wenn die Antwort eine Frage enthält, schneide alles danach ab
+    # Entferne Text ab "Kontrollpunkte:" falls vorhanden
+    if "Kontrollpunkte:" in answer:
+        answer = answer.split("Kontrollpunkte:")[0].strip()
+    
+    # Entferne interne Modellgedankengänge (Chain-of-Thought)
+    if "Die Antwort enthält" in answer:
+        answer = answer.split("Die Antwort enthält")[0].strip()
+    
+    # Entferne interne Bewertungen und Korrekturhinweise:
+    if "Eine bessere Antwort wäre:" in answer:
+        answer = answer.split("Eine bessere Antwort wäre:")[-1].strip()
+    
+    # Entferne führende Sternchen oder Formatierungen, die auf interne Notizen hinweisen
+    answer = re.sub(r'^\*+\s*', '', answer).strip()
+    
     question_patterns = [
-        r"\?(\s|$)",  # Fragezeichen gefolgt von Leerzeichen oder Ende
+        r"\?(\s|$)",
         r"Keine weitere Frage",
         r"Möchtest du",
         r"Kann ich",
@@ -143,20 +158,16 @@ def post_process_answer(answer: str) -> str:
     for pattern in question_patterns:
         match = re.search(pattern, answer)
         if match:
-            # Schneide bei der ersten Frage ab und behalte nur den Satz mit dem Fragezeichen
             pos = match.start()
-            # Finde das Ende des Satzes
             end_pos = answer.find('.', pos)
             if end_pos != -1:
                 answer = answer[:end_pos+1]
             else:
-                # Wenn kein Satzende gefunden wird, nimm alles bis zur Frage
                 answer = answer[:pos]
             break
-    
-    # Dialogmuster erkennen und entfernen (alles nach dem ersten Dialogwechsel)
+
     dialogue_patterns = [
-        r"\n[A-Z][^\.]*:", # Neue Zeile, Großbuchstabe, dann Doppelpunkt
+        r"\n[A-Z][^\.]*:",
         r"\nDu:",
         r"\nIch:",
         r"\nNutzer:",
@@ -168,8 +179,7 @@ def post_process_answer(answer: str) -> str:
         if match:
             answer = answer[:match.start()]
             break
-    
-    # Entferne Sätze mit selbstreferenziellen Inhalten
+
     self_ref_patterns = [
         r"Ich kann dir[^\.]*\.",
         r"Benötigst du[^\.]*\?",
@@ -181,22 +191,25 @@ def post_process_answer(answer: str) -> str:
     for pattern in self_ref_patterns:
         answer = re.sub(pattern, "", answer)
     
-    # Entferne explizite Marker und alles danach
-    markers = ["Hinweis:", "Die Frage wurde", "Die Antwort sollte", "Nutzer:", "Frage:", "Falsche",
-               "Bitte korrigiere", "Hier sind einige Beispiele"]
+    markers = [
+        "Hinweis:",
+        "Die Frage wurde",
+        "Die Antwort sollte",
+        "Falsche",
+        "Bitte korrigiere",
+        "Hier sind einige Beispiele"
+    ]
     
     for marker in markers:
         if marker in answer:
             parts = answer.split(marker)
             answer = parts[0].strip()
     
-    # Entferne "Antwort:" und alles davor
     if "Antwort:" in answer:
         parts = answer.split("Antwort:")
         if len(parts) > 1:
             answer = parts[1].strip()
     
-    # Entferne alles nach "welche Art von" oder ähnlichen Fragmenten neuer Fragen
     new_topic_fragments = [
         "welche Art von", 
         "wie funktioniert", 
@@ -209,44 +222,37 @@ def post_process_answer(answer: str) -> str:
     for fragment in new_topic_fragments:
         if fragment.lower() in answer.lower():
             pos = answer.lower().find(fragment.lower())
-            # Finde den Anfang des Satzes
             start_pos = answer.rfind('.', 0, pos)
             if start_pos != -1:
                 answer = answer[:start_pos+1]
             break
-    
-    # Teile die Antwort in Sätze auf
+
+    # Aufteilen in Sätze
     sentences = re.split(r'(?<=[.!?])\s+', answer)
     sentences = [s.strip() for s in sentences if s.strip()]
     
-    # Behalte nur vollständige Sätze (die mit Punkt, Ausrufezeichen oder Fragezeichen enden)
-    complete_sentences = []
-    for s in sentences:
-        if s and re.search(r'[.!?]$', s):
-            complete_sentences.append(s)
+    complete_sentences = [s for s in sentences if re.search(r'[.!?]$', s)]
     
-    # Entferne Wiederholungen von Sätzen
-    unique_sentences = []
-    for sentence in complete_sentences:
-        if sentence not in unique_sentences:
-            unique_sentences.append(sentence)
+    # Entferne Sätze, die nur aus einer Zahl und einem Punkt bestehen (z. B. "3.")
+    filtered_sentences = [s for s in complete_sentences if not re.fullmatch(r'\d+\.', s)]
     
-    # Begrenze auf 3-5 Sätze
+    # Falls alle Sätze entfernt würden, nutze die Original-Sätze
+    if filtered_sentences:
+        unique_sentences = []
+        for sentence in filtered_sentences:
+            if sentence not in unique_sentences:
+                unique_sentences.append(sentence)
+    else:
+        unique_sentences = complete_sentences
+
+    # Begrenze auf maximal 5 Sätze
     if len(unique_sentences) > 5:
         unique_sentences = unique_sentences[:5]
     
-    # Wenn weniger als 3 Sätze vorhanden sind, behalte alle bei
-    final_sentences = unique_sentences
-    
-    # Stelle die Antwort wieder zusammen
-    processed_answer = ' '.join(final_sentences)
-    
-    # Entferne überflüssige Leerzeichen
-    processed_answer = re.sub(r'\s+', ' ', processed_answer)
-    processed_answer = processed_answer.strip()
+    processed_answer = ' '.join(unique_sentences)
+    processed_answer = re.sub(r'\s+', ' ', processed_answer).strip()
     
     return processed_answer
-
 
 def generate_dynamic_prompt(user_input, context_str, communication_mode='default'):
     """
@@ -254,49 +260,60 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
     integriert. Dieser Prompt kombiniert die festgelegten Kommunikationsprinzipien mit dem 
     aktuellen Gesprächskontext und der Nutzeranfrage.
     """
-    # Perfekter Prompt für autistische Nutzer (auf Englisch)
+    # Perfekter Prompt für autistische Nutzer (auf Deutsch)
     perfect_prompt = (
-        "Communication Protocol for Neurodiverse Interaction:\n\n"
-        "1. Analyze the core question precisely:\n"
-        "   - Identify and list the key elements of the question.\n"
-        "   - Break down any complex instructions into the smallest possible steps.\n\n"
-        "2. Use literal, direct language:\n"
-        "   - Avoid idioms, metaphors, or ambiguous expressions.\n"
-        "   - Express all ideas in a clear, factual manner with concrete examples when necessary.\n\n"
-        "3. Provide structured, step-by-step explanations:\n"
-        "   - Present information using numbered steps and bullet points.\n"
-        "   - Ensure each step is sequential and builds logically on the previous one.\n"
-        "   - Include observable details and explicit descriptions for every instruction.\n\n"
-        "4. Maintain consistency and validate understanding:\n"
-        "   - Continuously check that every part of your response aligns with the original question.\n"
-        "   - Summarize the key points at the end and ask for confirmation or if further clarification is needed.\n\n"
-        "5. Prioritize factual and objective information:\n"
-        "   - Limit emotional language and subjective interpretations.\n"
-        "   - Ensure that every statement is supported by objective data or clearly defined reasoning.\n\n"
-        "Response configuration:\n"
-        "- Sentence count: Use 3-5 clear, complete sentences per answer.\n"
-        "- Complexity: Keep the language simple and direct.\n"
-        "- Style: Structured, factual, and sequential.\n\n"
-        "Your Answer:\n"
+        "Deine Aufgabe ist es, einem autistischen Nutzer mit klarer, strukturierter Kommunikation zu helfen. Befolge diese Schritte:\n\n"
+        "1. Analysiere die Kernfrage präzise:\n"
+        "   - Identifiziere und liste die Schlüsselelemente der Frage auf.\n"
+        "   - Zerlege komplexe Anweisungen in die kleinsten möglichen Schritte.\n\n"
+        "2. Verwende wörtliche, direkte Sprache:\n"
+        "   - Vermeide Idiome, Metaphern oder mehrdeutige Ausdrücke.\n"
+        "   - Drücke alle Ideen klar und sachlich aus, mit konkreten Beispielen, wenn nötig.\n\n"
+        "3. Gib strukturierte, schrittweise Erklärungen:\n"
+        "   - Stelle sicher, dass maximal 1 Fakt pro Satz wiedergegeben wird.\n"
+        "   - Stelle sicher, dass jeder Schritt auf den vorherigen logisch aufbaut.\n"
+        "   - Vermeide verschachtelte Satzstrukturen.\n\n"
+        "4. Halte Konsistenz aufrecht und überprüfe das Verständnis:\n"
+        "   - Stelle kontinuierlich sicher, dass jeder Teil deiner Antwort mit der ursprünglichen Frage übereinstimmt.\n"
+        "   - Fasse die wichtigsten Punkte am Ende zusammen und frage nach Bestätigung oder ob weitere Klärung benötigt wird.\n\n"
+        "5. Priorisiere sachliche und objektive Informationen:\n"
+        "   - Begrenze emotionale Sprache und subjektive Interpretationen.\n"
+        "   - Stelle sicher, dass jede Aussage durch objektive Daten oder klar definierte Argumente gestützt wird.\n\n"
+        "6. Verliere keine wichtigen Fakten und Informationen:\n"
+        "   - Überprüfe, ob du alle relevanten Details in deiner Antwort enthalten hast.\n"
+        "   - Keine internen Modellgedanken oder Bewertungen\n\n"
+        "Antwortkonfiguration:\n"
+        "- Satzanzahl: Verwende maximal 5 klare, vollständige Sätze pro Antwort.\n"
+        "- Komplexität: Halte die Sprache einfach und direkt.\n"
+        "- Stil: Strukturiert, sachlich und schrittweise.\n"
+        "- Denke nicht laut nach.\n"
+        "- Schreibe keine internen Überlegungen, keine Kontrollpunkte, keine Selbstkritik.\n"
+        "- Beginne direkt mit der Antwort.\n"
+        "- Keine Hinweise auf die Frageformulierung oder die eigene Antwortstruktur.\n"
+        "- Keine Einleitung wie 'Hier ist deine Antwort' oder 'Ich denke, dass...'\n\n"
+        "Deine Antwort:\n"
     )
     
-    # Anpassung je nach Kommunikationsmodus
+    # Erweiterte Kommunikationsmodi mit detaillierteren Anweisungen
     communication_modes = {
         'default': {
             'length': 3,
             'complexity': 'neutral',
-            'style': 'direct'
+            'style': 'direct',
+            'detailed_instructions': "Antworte klar und verständlich, ohne zu sehr ins Detail zu gehen. Verwende maximal 3 Sätze"
         },
         'precise': {
             'length': 2,
             'complexity': 'low',
-            'style': 'scientific'
+            'style': 'scientific',
+            'detailed_instructions': "Fasse die wesentlichen Fakten zusammen und liefere eine präzise, evidenzbasierte Antwort. Verwende maximal 2 Sätze"
         },
         'detailed': {
             'length': 5,
             'complexity': 'high',
-            'style': 'structured'
-        }
+            'style': 'structured',
+            'detailed_instructions': "Gib eine ausführliche Erklärung mit Schritt-für-Schritt-Anleitungen, die alle Aspekte der Frage abdecken. Verwende maximal 5 Sätze"
+        }    
     }
     
     mode = communication_modes.get(communication_mode, communication_modes['default'])
@@ -306,12 +323,10 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
         f"---\nKommunikationsanforderungen:\n"
         f"- Satzanzahl: {mode['length']}\n"
         f"- Komplexitätslevel: {mode['complexity']}\n"
-        f"- Stil: {mode['style']}\n\n"
+        f"- Stil: {mode['style']}\n"
+        f"- Detaillierte Anweisungen: {mode['detailed_instructions']}\n\n"
         f"Bisheriger Kontext:\n{context_str}\n\n"
         f"Aktuelle Frage: {user_input}\n\n"
-        "Wichtige Regeln:\n"
-        "- Keine Selbstüberprüfung oder Meta-Kommentare.\n"
-        "- Halte die Antwort präzise und ohne unnötige Wiederholungen.\n\n"
         "Antwort:"
     )
     
@@ -350,9 +365,8 @@ def chat():
     try:
         raw_response = executor.submit(
             generate_response, 
-            prompt, 
-            temperature=0.3,  # Niedrigere Temperatur für konsistentere Ergebnisse
-            max_tokens=500    # Begrenzte Tokenlänge verhindert ausufernde Antworten
+            prompt,
+            communication_mode
         ).result()
     except Exception as e:
         return jsonify({"error": str(e)})
