@@ -142,6 +142,15 @@ def post_process_answer(answer: str) -> str:
     # Entferne interne Bewertungen und Korrekturhinweise:
     if "Eine bessere Antwort wäre:" in answer:
         answer = answer.split("Eine bessere Antwort wäre:")[-1].strip()
+
+    if "Kontrollfragen:" in answer:
+        answer = answer.split("Kontrollfragen:")[0].strip()
+
+    if "---" in answer:
+        answer = answer.split("---")[0].strip()
+
+    if "Folgeanweisungen" in answer:
+        answer = answer.split("Folgeanweisungen")[0].strip()
     
     # Entferne führende Sternchen oder Formatierungen, die auf interne Notizen hinweisen
     answer = re.sub(r'^\*+\s*', '', answer).strip()
@@ -283,11 +292,8 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
         "   - Überprüfe, ob du alle relevanten Details in deiner Antwort enthalten hast.\n"
         "   - Keine internen Modellgedanken oder Bewertungen\n\n"
         "Antwortkonfiguration:\n"
-        "- Satzanzahl: Verwende maximal 5 klare, vollständige Sätze pro Antwort.\n"
-        "- Komplexität: Halte die Sprache einfach und direkt.\n"
-        "- Stil: Strukturiert, sachlich und schrittweise.\n"
         "- Denke nicht laut nach.\n"
-        "- Schreibe keine internen Überlegungen, keine Kontrollpunkte, keine Selbstkritik.\n"
+        "- Schreibe keine internen Überlegungen, keine Kontrollpunkte, keine Selbstkritik, keine Folgeanweisungen.\n"
         "- Beginne direkt mit der Antwort.\n"
         "- Keine Hinweise auf die Frageformulierung oder die eigene Antwortstruktur.\n"
         "- Keine Einleitung wie 'Hier ist deine Antwort' oder 'Ich denke, dass...'\n\n"
@@ -297,10 +303,10 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
     # Erweiterte Kommunikationsmodi mit detaillierteren Anweisungen
     communication_modes = {
         'default': {
-            'length': 3,
+            'length': 4,
             'complexity': 'neutral',
             'style': 'direct',
-            'detailed_instructions': "Antworte klar und verständlich, ohne zu sehr ins Detail zu gehen. Verwende maximal 3 Sätze"
+            'detailed_instructions': "Antworte klar und verständlich, ohne zu sehr ins Detail zu gehen. Verwende maximal 4 Sätze"
         },
         'precise': {
             'length': 2,
@@ -309,10 +315,10 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
             'detailed_instructions': "Fasse die wesentlichen Fakten zusammen und liefere eine präzise, evidenzbasierte Antwort. Verwende maximal 2 Sätze"
         },
         'detailed': {
-            'length': 5,
+            'length': 7,
             'complexity': 'high',
             'style': 'structured',
-            'detailed_instructions': "Gib eine ausführliche Erklärung mit Schritt-für-Schritt-Anleitungen, die alle Aspekte der Frage abdecken. Verwende maximal 5 Sätze"
+            'detailed_instructions': "Gib eine ausführliche Erklärung mit Schritt-für-Schritt-Anleitungen, die alle Aspekte der Frage abdecken. Verwende maximal 7 Sätze"
         }    
     }
     
