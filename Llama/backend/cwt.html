@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognitive Walkthrough Evaluation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        
+        .section {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .criterion {
+            margin-bottom: 25px;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            margin-top: 8px;
+        }
+        
+        .slider {
+            flex-grow: 1;
+            height: 5px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+        }
+        
+        .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 5px;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        .value-display {
+            min-width: 30px;
+            text-align: center;
+            margin-left: 10px;
+            font-weight: bold;
+            color: #3498db;
+        }
+        
+        .task-section {
+            background-color: #f1f9fe;
+            border-left: 4px solid #3498db;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            margin-right: 10px;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        .notes {
+            margin-top: 15px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .pdf-preview {
+            display: none;
+            margin-top: 20px;
+        }
+        
+    </style>
+</head>
+<body>
+    <h1>Cognitive Walkthrough Evaluation</h1>
+    <p>Diese Evaluation dient zur Bewertung des Sprachassistenten für neurodivergente Personen. Bitte bewerten Sie die folgenden Kriterien auf einer Skala von 1 bis 5.</p>
+    
+    <div class="section">
+        <h2>Testeinrichtung</h2>
+        
+        
+        <div class="task-section">
+            <h3>Aufgabenszenario:</h3>
+            <p>Wählen Sie das zu testende Szenario:</p>
+            <select id="scenario-select">
+                <option value="scenario1">Szenario 1: Wissenschaftliche Faktenfrage</option>
+                <option value="scenario2">Szenario 2: Funktionsweise eines Alltagsgegenstands</option>
+                <option value="scenario3">Szenario 3: Soziale Situation</option>
+                <option value="scenario4">Szenario 4: Detailreiche Informationsanfrage</option>
+                <option value="scenario5">Szenario 5: Mehrstufiger Dialog</option>
+            </select>
+            
+            <div id="scenario-details" class="notes">
+                <p><strong>Aufgabenbeschreibung:</strong> Stellen Sie eine wissenschaftliche Faktenfrage, die eine klare, eindeutige Antwort erfordert und wissenschaftliche Fakten ohne emotionale Interpretation erlaubt.</p>
+                <p><strong>Beispielanfrage:</strong> "Was ist Photosynthese?"</p>
+                <p><strong>Warum sinnvoll:</strong> Diese Art von faktenbezogener Frage ist gut geeignet, da sie eine klare, eindeutige Antwort erfordert, wissenschaftliche Fakten ohne emotionale Interpretation erlaubt, die Präzision beider Prompt-Varianten gut vergleichbar macht und für viele autistische Personen ist die präzise Vermittlung von Faktenwissen besonders wichtig.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="evaluation-content">
+        <div class="section">
+            <h2>Funktionale Kriterien</h2>
+            
+            <div class="criterion">
+                <h3>Informationspräzision</h3>
+                <p>Wie genau liefert der Sprachassistent klare, unmissverständliche Informationen?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="precision-slider">
+                    <span class="value-display" id="precision-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (sehr mehrdeutig)</span>
+                    <span>5 (vollständig eindeutig)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Kognitive Belastung</h3>
+                <p>Inwieweit unterstützt die vereinfachte Sprache den Nutzer dabei, kognitive Überlastungen zu vermeiden?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="cognitive-slider">
+                    <span class="value-display" id="cognitive-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (hohe Belastung)</span>
+                    <span>5 (minimale Belastung)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Prompt-Effektivität</h3>
+                <p>Wie unterschiedlich wirken spezialisierte und generische Prompts auf die Antwortqualität?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="prompt-slider">
+                    <span class="value-display" id="prompt-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (ineffektiv)</span>
+                    <span>5 (sehr effektiv)</span>
+                </div>
+            </div>
+
+            <div class="criterion">
+                <h3>Kommunikationsmoduseffektivität</h3>
+                <p>Wie gut funktionieren die verschiedenen Modi (default, precise, detailed) für unterschiedliche Anfragen?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="mode-slider">
+                    <span class="value-display" id="mode-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (ineffektiv)</span>
+                    <span>5 (sehr effektiv)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Informationsdichte</h3>
+                <p>Enthält die Antwort alle notwendigen Informationen?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="density-slider">
+                    <span class="value-display" id="density-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (unzureichend)</span>
+                    <span>5 (optimal)</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Strukturelle Kriterien</h2>
+            
+            <div class="criterion">
+                <h3>Satzlängen-Einhaltung</h3>
+                <p>Werden kurze Sätze zuverlässig eingehalten?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="sentence-slider">
+                    <span class="value-display" id="sentence-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (nicht eingehalten)</span>
+                    <span>5 (perfekt eingehalten)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Antwortlänge</h3>
+                <p>Sind die Antworten im vorgegebenen Rahmen strukturiert?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="length-slider">
+                    <span class="value-display" id="length-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (außerhalb des Rahmens)</span>
+                    <span>5 (optimal strukturiert)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Sprachliche Klarheit</h3>
+                <p>Werden Metaphern oder idiomatische Ausdrücke konsequent vermieden?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="clarity-slider">
+                    <span class="value-display" id="clarity-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (viele Metaphern)</span>
+                    <span>5 (vollständig vermieden)</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Nutzererfahrungs Kriterien</h2>
+            
+            <div class="criterion">
+                <h3>Praxisrelevanz</h3>
+                <p>Wie anwendbar sind die Antworten in realen Alltagssituationen?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="relevance-slider">
+                    <span class="value-display" id="relevance-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (nicht anwendbar)</span>
+                    <span>5 (sehr anwendbar)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Angstreduktion</h3>
+                <p>Reduziert die Art der Informationsvermittlung soziale Unsicherheiten?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="anxiety-slider">
+                    <span class="value-display" id="anxiety-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (keine Reduktion)</span>
+                    <span>5 (starke Reduktion)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Vorhersagbarkeit</h3>
+                <p>Wird ein konsistentes Format eingehalten?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="predictability-slider">
+                    <span class="value-display" id="predictability-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (inkonsistent)</span>
+                    <span>5 (sehr konsistent)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Detailtiefe</h3>
+                <p>Wie detailliert werden Spezialthemen behandelt?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="detail-slider">
+                    <span class="value-display" id="detail-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (oberflächlich)</span>
+                    <span>5 (sehr detailliert)</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Technische Kriterien</h2>
+            
+            <div class="criterion">
+                <h3>Interface-Zugänglichkeit</h3>
+                <p>Ist die App-Oberfläche optimal auf die Bedürfnisse autistischer Nutzer abgestimmt?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="interface-slider">
+                    <span class="value-display" id="interface-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (nicht angepasst)</span>
+                    <span>5 (perfekt angepasst)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Fehlerbehandlung</h3>
+                <p>Wie robust reagiert das System auf missverstandene oder fehlerhafte Eingaben?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="error-slider">
+                    <span class="value-display" id="error-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (nicht robust)</span>
+                    <span>5 (sehr robust)</span>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Qualität TTS</h3>
+                <p>Ist die Sprachausgabe verständlich?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="tts-slider">
+                    <span class="value-display" id="tts-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (unverständlich)</span>
+                    <span>5 (sehr verständlich)</span>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <h2>Vergleichsanalyse</h2>
+            
+            <div class="comparison-container">
+                <div class="comparison-column">
+                    <h3>Standard-Antwort</h3>
+                    <textarea id="standard-response" placeholder="Fügen Sie hier die Standard-Antwort ein..."></textarea>
+                </div>
+                <div class="comparison-column">
+                    <h3>Optimierte Antwort</h3>
+                    <textarea id="optimized-response" placeholder="Fügen Sie hier die optimierte Antwort ein..."></textarea>
+                </div>
+            </div>
+            
+            <div class="criterion">
+                <h3>Verbesserungsgrad</h3>
+                <p>Wie stark verbessert der spezialisierte Prompt die Antwortqualität?</p>
+                <div class="slider-container">
+                    <input type="range" min="1" max="5" value="3" class="slider" id="improvement-slider">
+                    <span class="value-display" id="improvement-value">3</span>
+                </div>
+                <div class="slider-labels">
+                    <span>1 (sehr wenig)</span>
+                    <span>5 (sehr stark)</span>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <h2>Anmerkungen und Beobachtungen</h2>
+            <textarea id="notes" placeholder="Bitte geben Sie hier Ihre Anmerkungen und Beobachtungen ein..."></textarea>
+        </div>
+    </div>
+    
+    <div class="button-group">
+        <button id="save-btn">Evaluation speichern</button>
+        <button id="export-json-btn">Als JSON exportieren</button>
+        <button id="export-pdf-btn">Als PDF exportieren</button>
+    </div>
+    
+    <script>
+        // Update value displays when sliders change
+        const sliders = document.querySelectorAll('.slider');
+        sliders.forEach(slider => {
+            const valueDisplay = document.getElementById(slider.id.replace('slider', 'value'));
+            slider.addEventListener('input', () => {
+                valueDisplay.textContent = slider.value;
+            });
+        });
+        
+        // Change scenario details based on selection
+        const scenarioSelect = document.getElementById('scenario-select');
+        const scenarioDetails = document.getElementById('scenario-details');
+        
+        const scenarios = {
+            scenario1: {
+                description: "Stellen Sie eine wissenschaftliche Faktenfrage, die eine klare, eindeutige Antwort erfordert und wissenschaftliche Fakten ohne emotionale Interpretation erlaubt.",
+                example: "Was ist Photosynthese?",
+                rationale: "Diese Art von faktenbezogener Frage ist gut geeignet, da sie eine klare, eindeutige Antwort erfordert, wissenschaftliche Fakten ohne emotionale Interpretation erlaubt, die Präzision beider Prompt-Varianten gut vergleichbar macht und für viele autistische Personen ist die präzise Vermittlung von Faktenwissen besonders wichtig."
+            },
+            scenario2: {
+                description: "Stellen Sie eine Frage zur Funktionsweise eines alltäglichen Gegenstands.",
+                example: "Wie funktioniert ein Toaster?",
+                rationale: "Bezieht sich auf ein alltägliches Objekt mit klarer Funktionsweise, erlaubt eine sequentielle, logische Erklärung (erst passiert X, dann Y), kann gut in kurzen, strukturierten Sätzen erklärt werden, und viele autistische Menschen schätzen technische Erklärungen und klare Ursache-Wirkung-Beziehungen."
+            },
+            scenario3: {
+                description: "Stellen Sie eine Frage zu einer sozialen Situation, die für neurodivergente Menschen herausfordernd sein kann.",
+                example: "Ich muss morgen zum Arzt. Was sollte ich beachten?",
+                rationale: "Soziale Situationen wie Arztbesuche können für autistische Menschen herausfordernd sein, erlaubt praktische, konkrete Handlungsanweisungen, testet, wie gut der Prompt komplexe soziale Abläufe in einfachen Schritten erklären kann, und bietet die Möglichkeit, Routinen und Vorhersehbarkeit zu fördern, was für viele autistische Menschen Sicherheit gibt."
+            },
+            scenario4: {
+                description: "Stellen Sie eine Frage, die eine detailreiche, strukturierte Antwort erfordert.",
+                example: "Erkläre die verschiedenen Unterkategorien des Autismus-Spektrums.",
+                rationale: "Testet, wie gut komplexe, nuancierte Informationen in kurzen Sätzen vermittelt werden können, prüft, ob wichtige Details trotz Wort- und Satzbegrenzung erhalten bleiben, und zeigt, ob der Prompt in der Lage ist, Fachbegriffe angemessen zu vereinfachen, ohne wichtige Unterscheidungen zu verlieren."
+            },
+            scenario5: {
+                description: "Initiieren Sie einen mehrstufigen Dialog zu einem Thema, das für neurodivergente Personen relevant ist.",
+                example: "1. Was sind sensorische Überempfindlichkeiten? 2. Wie kann ich im Alltag damit umgehen? 3. Welche Hilfsmittel gibt es konkret bei Lärmempfindlichkeit?",
+                rationale: "Testet, wie gut der Prompt Kontextinformationen aus vorherigen Anfragen berücksichtigt, prüft die Fähigkeit, auf spezifischere Nachfragen einzugehen, zeigt, ob die Antworten konsistent bleiben oder sich widersprechen, und simuliert realistischere Nutzungsszenarien, da Informationssuche oft schrittweise erfolgt."
+            }
+        };
+        
+        scenarioSelect.addEventListener('change', () => {
+            const selectedScenario = scenarios[scenarioSelect.value];
+            scenarioDetails.innerHTML = `
+                <p><strong>Aufgabenbeschreibung:</strong> ${selectedScenario.description}</p>
+                <p><strong>Beispielanfrage:</strong> "${selectedScenario.example}"</p>
+                <p><strong>Warum sinnvoll:</strong> ${selectedScenario.rationale}</p>
+            `;
+        });
+        
+        // Save functionality
+        document.getElementById('save-btn').addEventListener('click', () => {
+            alert('Evaluation gespeichert!');
+        });
+        
+        // JSON Export functionality
+        document.getElementById('export-json-btn').addEventListener('click', () => {
+            const data = collectEvaluationData();
+            
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = 'cognitive-walkthrough-evaluation.json';
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        });
+
+        // PDF Export functionality
+        document.getElementById('export-pdf-btn').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Collect data
+            const data = collectEvaluationData();
+            const scenarioName = document.getElementById('scenario-select').options[document.getElementById('scenario-select').selectedIndex].text;
+            
+            // Set up PDF
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.text("Cognitive Walkthrough Evaluation", 15, 20);
+            
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(12);
+            doc.text(`Szenario: ${scenarioName}`, 15, 30);
+            doc.text(`Datum: ${new Date().toLocaleDateString('de-DE')}`, 15, 40);
+            
+            let yPosition = 50;
+            
+            // Add functional criteria
+            doc.setFont("helvetica", "bold");
+            doc.text("Funktionale Kriterien", 15, yPosition);
+            yPosition += 10;
+            doc.setFont("helvetica", "normal");
+            doc.text(`Informationspräzision: ${data.functionalCriteria.informationPrecision}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Kognitive Belastung: ${data.functionalCriteria.cognitiveBurden}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Prompt-Effektivität: ${data.functionalCriteria.promptEffectiveness}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Informationsdichte: ${data.functionalCriteria.informationDensity}/5`, 15, yPosition);
+            yPosition += 15;
+            
+            // Add structural criteria
+            doc.setFont("helvetica", "bold");
+            doc.text("Strukturelle Kriterien", 15, yPosition);
+            yPosition += 10;
+            doc.setFont("helvetica", "normal");
+            doc.text(`Satzlängen-Einhaltung: ${data.structuralCriteria.sentenceLength}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Antwortlänge: ${data.structuralCriteria.responseLength}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Sprachliche Klarheit: ${data.structuralCriteria.linguisticClarity}/5`, 15, yPosition);
+            yPosition += 15;
+            
+            // Add user experience criteria
+            doc.setFont("helvetica", "bold");
+            doc.text("Nutzererfahrungs Kriterien", 15, yPosition);
+            yPosition += 10;
+            doc.setFont("helvetica", "normal");
+            doc.text(`Praxisrelevanz: ${data.userExperienceCriteria.practicalRelevance}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Angstreduktion: ${data.userExperienceCriteria.anxietyReduction}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Vorhersagbarkeit: ${data.userExperienceCriteria.predictability}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Detailtiefe: ${data.userExperienceCriteria.detailDepth}/5`, 15, yPosition);
+            yPosition += 15;
+            
+            // Add technical criteria
+            doc.setFont("helvetica", "bold");
+            doc.text("Technische Kriterien", 15, yPosition);
+            yPosition += 10;
+            doc.setFont("helvetica", "normal");
+            doc.text(`Interface-Zugänglichkeit: ${data.technicalCriteria.interfaceAccessibility}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Fehlerbehandlung: ${data.technicalCriteria.errorHandling}/5`, 15, yPosition);
+            yPosition += 7;
+            doc.text(`Qualität TTS: ${data.technicalCriteria.ttsQuality}/5`, 15, yPosition);
+            yPosition += 15;
+            
+            // Add notes if they exist
+            if (data.notes.trim().length > 0) {
+                doc.setFont("helvetica", "bold");
+                doc.text("Anmerkungen und Beobachtungen", 15, yPosition);
+                yPosition += 10;
+                doc.setFont("helvetica", "normal");
+                
+                // Split notes into multiple lines
+                const splitNotes = doc.splitTextToSize(data.notes, 180);
+                doc.text(splitNotes, 15, yPosition);
+            }
+            
+            doc.save('cognitive-walkthrough-evaluation.pdf');
+        });
+
+        // Helper function to collect evaluation data
+        function collectEvaluationData() {
+            return {
+                functionalCriteria: {
+                    informationPrecision: document.getElementById('precision-slider').value,
+                    cognitiveBurden: document.getElementById('cognitive-slider').value,
+                    promptEffectiveness: document.getElementById('prompt-slider').value,
+                    informationDensity: document.getElementById('density-slider').value
+                },
+                structuralCriteria: {
+                    sentenceLength: document.getElementById('sentence-slider').value,
+                    responseLength: document.getElementById('length-slider').value,
+                    linguisticClarity: document.getElementById('clarity-slider').value
+                },
+                userExperienceCriteria: {
+                    practicalRelevance: document.getElementById('relevance-slider').value,
+                    anxietyReduction: document.getElementById('anxiety-slider').value,
+                    predictability: document.getElementById('predictability-slider').value,
+                    detailDepth: document.getElementById('detail-slider').value
+                },
+                technicalCriteria: {
+                    interfaceAccessibility: document.getElementById('interface-slider').value,
+                    errorHandling: document.getElementById('error-slider').value,
+                    ttsQuality: document.getElementById('tts-slider').value
+                },
+                notes: document.getElementById('notes').value,
+                scenario: document.getElementById('scenario-select').value,
+                date: new Date().toISOString()
+            };
+        }
+    </script>
+</body>
+</html>

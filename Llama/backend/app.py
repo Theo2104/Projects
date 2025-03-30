@@ -131,15 +131,15 @@ def post_process_answer(answer: str) -> str:
     wie interner Instruktionen, Gedankengänge und Bewertungen des Modells,
     sowie zur Sicherstellung vollständiger Sätze.
     """
-    # Entferne Text ab "Kontrollpunkte:" falls vorhanden
+    # Entferne interne Modellgedankengänge (Chain-of-Thought)
     if "Kontrollpunkte:" in answer:
         answer = answer.split("Kontrollpunkte:")[0].strip()
     
-    # Entferne interne Modellgedankengänge (Chain-of-Thought)
+    
     if "Die Antwort enthält" in answer:
         answer = answer.split("Die Antwort enthält")[0].strip()
     
-    # Entferne interne Bewertungen und Korrekturhinweise:
+
     if "Eine bessere Antwort wäre:" in answer:
         answer = answer.split("Eine bessere Antwort wäre:")[-1].strip()
 
@@ -283,8 +283,7 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
         "   - Stelle sicher, dass jeder Schritt auf den vorherigen logisch aufbaut.\n"
         "   - Vermeide verschachtelte Satzstrukturen.\n\n"
         "4. Halte Konsistenz aufrecht und überprüfe das Verständnis:\n"
-        "   - Stelle kontinuierlich sicher, dass jeder Teil deiner Antwort mit der ursprünglichen Frage übereinstimmt.\n"
-        "   - Fasse die wichtigsten Punkte am Ende zusammen und frage nach Bestätigung oder ob weitere Klärung benötigt wird.\n\n"
+        "   - Stelle kontinuierlich sicher, dass jeder Teil deiner Antwort mit der ursprünglichen Frage übereinstimmt.\n\n"
         "5. Priorisiere sachliche und objektive Informationen:\n"
         "   - Begrenze emotionale Sprache und subjektive Interpretationen.\n"
         "   - Stelle sicher, dass jede Aussage durch objektive Daten oder klar definierte Argumente gestützt wird.\n\n"
@@ -403,6 +402,13 @@ def generate_explanation(answer, user_input, communication_mode):
         f"Kommunikationsmodus: {communication_mode}\n"
         f"Frage: {user_input}\n"
         f"Antwort: {answer}\n\n"
+        "Deine Aufgabe ist es, eine Meta-Erklärung zu generieren, die einem autistischen Nutzer "
+        "hilft, deine vorherige Antwort besser zu verstehen. \n\n"
+        "Verwende folgende Prinzipien:\n"
+        "1. Erkläre die Logik hinter deiner Antwort\n"
+        "2. Verdeutliche Zusammenhänge zwischen Frage und Antwort\n"
+        "3. Identifiziere potenzielle Unklarheiten und kläre diese\n"
+        "4. Vermeide Wiederholung der Originalntwort\n\n"
         "Deine Erklärung:"
     )
     
@@ -410,7 +416,7 @@ def generate_explanation(answer, user_input, communication_mode):
         raw_explanation = model.generate(
             explanation_prompt, 
             temp=0.2, 
-            max_tokens=200
+            max_tokens=300
         )
         return post_process_answer(raw_explanation)
     except Exception as e:
