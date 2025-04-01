@@ -559,6 +559,49 @@
             <h2>Anmerkungen und Beobachtungen</h2>
             <textarea id="notes" placeholder="Bitte geben Sie hier Ihre Anmerkungen und Beobachtungen ein..."></textarea>
         </div>
+        
+        <!-- Neuer Abschnitt für demografische Angaben -->
+        <div class="section">
+            <h2>Demografische Angaben</h2>
+            <div class="criterion">
+                <label for="age">Alter:</label>
+                <input type="number" id="age" name="age" min="0" max="120" placeholder="Ihr Alter">
+            </div>
+            <div class="criterion">
+                <p>Geschlecht:</p>
+                <input type="radio" id="male" name="gender" value="Männlich">
+                <label for="male">Männlich</label>
+                <input type="radio" id="female" name="gender" value="Weiblich">
+                <label for="female">Weiblich</label>
+                <input type="radio" id="other" name="gender" value="Andere">
+                <label for="other">Andere</label>
+            </div>
+            <div class="criterion">
+                <label for="education">Bildungsniveau:</label>
+                <select id="education" name="education">
+                    <option value="">Bitte auswählen</option>
+                    <option value="none">Kein Abschluss</option>
+                    <option value="highschool">Hauptschulabschluss</option>
+                    <option value="secondary">Realschulabschluss</option>
+                    <option value="bachelor">Bachelor</option>
+                    <option value="master">Master</option>
+                    <option value="phd">Doktortitel</option>
+                </select>
+            </div>
+            <h3>Fachspezifische Angaben</h3>
+            <div class="criterion">
+                <label for="hci_expertise">Expertise im Bereich Mensch-Computer-Interaktion (HCI):</label>
+                <textarea id="hci_expertise" name="hci_expertise" placeholder="Bitte geben Sie Details zu Publikationen, Projekterfahrung oder spezieller Expertise im Bereich HCI ein..."></textarea>
+            </div>
+            <div class="criterion">
+                <label for="autism_experience">Erfahrung im Umgang mit autistischen Nutzern:</label>
+                <textarea id="autism_experience" name="autism_experience" placeholder="Bitte geben Sie an, ob und welche Erfahrungen Sie mit autistischen Zielgruppen gesammelt haben..."></textarea>
+            </div>
+            <div class="criterion">
+                <label for="assistant_experience">Kenntnisse und Erfahrungen im Umgang mit Sprachassistenten:</label>
+                <textarea id="assistant_experience" name="assistant_experience" placeholder="Bitte beschreiben Sie Ihre Erfahrungen im Bereich Sprachassistenztechnologie, z.B. in Android-basierten Systemen..."></textarea>
+            </div>
+        </div>
     </div>
     
     <div class="button-group">
@@ -1027,13 +1070,28 @@
             doc.save("cognitive_walkthrough_" + new Date().toISOString().substring(0, 10) + ".pdf");
         });
 
-        // Hilfsfunktion zum Sammeln der Evaluationsdaten (unverändert)
+        // Hilfsfunktion zum Sammeln der Evaluationsdaten
         function collectEvaluationData() {
             const sliderValues = {};
             const sliders = document.querySelectorAll('.slider');
             sliders.forEach(slider => {
                 sliderValues[slider.id] = parseInt(slider.value);
             });
+            
+            // Erfasse auch demografische Daten
+            const age = document.getElementById('age').value;
+            const genderElems = document.getElementsByName('gender');
+            let gender = '';
+            for (const elem of genderElems) {
+                if (elem.checked) {
+                    gender = elem.value;
+                    break;
+                }
+            }
+            const education = document.getElementById('education').value;
+            const hciExpertise = document.getElementById('hci_expertise').value;
+            const autismExperience = document.getElementById('autism_experience').value;
+            const assistantExperience = document.getElementById('assistant_experience').value;
             
             return {
                 timestamp: new Date().toISOString(),
@@ -1047,7 +1105,17 @@
                     standard: document.getElementById('standard-response').value,
                     optimized: document.getElementById('optimized-response').value
                 },
-                notes: document.getElementById('notes').value
+                notes: document.getElementById('notes').value,
+                demographics: {
+                    age: age,
+                    gender: gender,
+                    education: education
+                },
+                fachspezifisch: {
+                    hciExpertise: hciExpertise,
+                    autismExperience: autismExperience,
+                    assistantExperience: assistantExperience
+                }
             };
         }
                 
@@ -1063,28 +1131,6 @@
         });
         
         // Helper functions
-        function collectEvaluationData() {
-            const sliderValues = {};
-            sliders.forEach(slider => {
-                sliderValues[slider.id] = parseInt(slider.value);
-            });
-            
-            return {
-                timestamp: new Date().toISOString(),
-                scenario: {
-                    id: scenarioSelect.value,
-                    details: scenarios[scenarioSelect.value]
-                },
-                mode: document.querySelector('.mode-button.active').getAttribute('data-mode'),
-                ratings: sliderValues,
-                responses: {
-                    standard: document.getElementById('standard-response').value,
-                    optimized: document.getElementById('optimized-response').value
-                },
-                notes: document.getElementById('notes').value
-            };
-        }
-        
         function saveEvaluation(data) {
             let evaluations = JSON.parse(localStorage.getItem('cognitive_walkthrough_evaluations') || '[]');
             evaluations.push(data);
@@ -1121,8 +1167,8 @@
         
         function loadEvaluation(evaluation) {
             // Set scenario
-            scenarioSelect.value = evaluation.scenario.id;
-            scenarioSelect.dispatchEvent(new Event('change'));
+            document.getElementById('scenario-select').value = evaluation.scenario.id;
+            document.getElementById('scenario-select').dispatchEvent(new Event('change'));
             
             // Set mode
             const modeButton = document.querySelector(`.mode-button[data-mode="${evaluation.mode}"]`);
@@ -1144,6 +1190,14 @@
             document.getElementById('standard-response').value = evaluation.responses.standard;
             document.getElementById('optimized-response').value = evaluation.responses.optimized;
             document.getElementById('notes').value = evaluation.notes;
+            
+            // Set demografische Angaben
+            document.getElementById('age').value = evaluation.demographics.age;
+            const genderElems = document.getElementsByName('gender');
+            for (const elem of genderElems) {
+                elem.checked = (elem.value === evaluation.demographics.gender);
+            }
+            document.getElementById('education').value = evaluation.demographics.education;
             
             // Update charts
             updateCharts();
