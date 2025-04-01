@@ -263,6 +263,55 @@ def post_process_answer(answer: str) -> str:
     
     return processed_answer
 
+def detect_communication_mode(user_input: str) -> str:
+    """
+    Uses the language model to determine the optimal communication mode
+    based on the user input.
+    
+    Returns:
+        str: 'precise', 'detailed', or 'default'
+    """
+    with model_lock:
+        # Create a prompt that asks the model to classify the communication mode
+        classification_prompt = (
+            f"Nutzereingabe: \"{user_input}\"\n\n"
+            "Wähle nur eine Option: precise, detailed oder default.\n"
+            "- precise: für kurze, faktische Fragen\n"
+            "- detailed: für komplexe Fragen, die Erklärungen benötigen\n"
+            "- default: für allgemeine Konversation\n\n"
+            "Deine Antwort (nur ein Wort): "
+        )
+                
+        # Get the model's classification
+        try:
+            response = model.generate(
+                classification_prompt,
+                temp=0.01,  # Use low temperature for deterministic output
+                max_tokens=20  # We only need a short response
+            )
+            
+            # Extract the mode from the response
+            response = response.strip().lower()
+            
+            # Check if one of the valid modes is in the response
+            if 'precise' in response:
+                detected_mode = 'precise'
+            elif 'detailed' in response:
+                detected_mode = 'detailed'
+            elif 'default' in response:
+                detected_mode = 'default'
+            else:
+                # Fallback to default if the response doesn't contain a valid mode
+                detected_mode = 'default'
+                
+            print(f"LLM erkannter Modus: {detected_mode} (Originale Antwort: {response})")
+            return detected_mode
+            
+        except Exception as e:
+            print(f"Fehler bei der Moduserkennung: {str(e)}")
+            # Fallback to default mode if classification fails
+            return 'default'
+
 def generate_dynamic_prompt(user_input, context_str, communication_mode='default'):
     """
     Erzeugt einen dynamischen Prompt, der den perfekten Prompt für neurodiverse Kommunikation
@@ -347,7 +396,15 @@ def chat():
     session_id = data.get("session_id", "default_user")
     user_input = data.get("input", "").strip()
     explain_flag = data.get("explain", False)
-    communication_mode = data.get("mode", 'default')
+    
+    # Automatische Moduserkennung, falls nicht explizit angegeben
+    user_specified_mode = data.get("mode")
+    if user_specified_mode and user_specified_mode in ['default', 'precise', 'detailed']:
+        # Nutzer hat einen Modus explizit ausgewählt
+        communication_mode = user_specified_mode
+    else:
+        # Automatische Erkennung des optimalen Kommunikationsmodus
+        communication_mode = detect_communication_mode(user_input)
 
     # Prüfe, ob der Kontext thematisch passt – ansonsten zurücksetzen
     clear_context_if_off_topic(session_id, user_input)
@@ -356,6 +413,7 @@ def chat():
     cached_key = f"{session_id}:{user_input}:{explain_flag}:{communication_mode}"
     cached_response = cache.get(cached_key)
     if cached_response:
+        cached_response["detected_mode"] = communication_mode
         return jsonify(cached_response)
 
     # Dynamisch den Kontext zusammenbauen
@@ -384,7 +442,11 @@ def chat():
     if explain_flag:
         explanation_text = generate_explanation(answer, user_input, communication_mode)
 
-    response_data = {"response": answer, "explanation": explanation_text}
+    response_data = {
+        "response": answer, 
+        "explanation": explanation_text,
+        "detected_mode": communication_mode
+    }
     cache.set(cached_key, response_data, timeout=300)
 
     return jsonify(response_data)
