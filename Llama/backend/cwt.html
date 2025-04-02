@@ -131,20 +131,7 @@
             flex: 1;
         }
         
-        .charts-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-        
-        .chart-container {
-            width: 48%;
-            height: 300px;
-            margin-bottom: 20px;
-        }
-        
+
         .mode-evaluation {
             background-color: #f5f9fc;
             border: 1px solid #d1e6f6;
@@ -237,8 +224,51 @@
     
     <div class="section">
         <h2>Testeinrichtung</h2>
-        
+        <!--demografische Angaben -->
+        <div class="section">
+            <h2>Demografische Angaben</h2>
+            <div class="criterion">
+                <label for="age">Alter:</label>
+                <input type="number" id="age" name="age" min="0" max="120" placeholder="Ihr Alter">
+            </div>
+            <div class="criterion">
+                <p>Geschlecht:</p>
+                <input type="radio" id="male" name="gender" value="Männlich">
+                <label for="male">Männlich</label>
+                <input type="radio" id="female" name="gender" value="Weiblich">
+                <label for="female">Weiblich</label>
+                <input type="radio" id="other" name="gender" value="Andere">
+                <label for="other">Andere</label>
+            </div>
+            <div class="criterion">
+                <label for="education">Bildungsniveau:</label>
+                <select id="education" name="education">
+                    <option value="">Bitte auswählen</option>
+                    <option value="none">Kein Abschluss</option>
+                    <option value="highschool">Hauptschulabschluss</option>
+                    <option value="secondary">Realschulabschluss</option>
+                    <option value="abitur">Abitur</option>
+                    <option value="bachelor">Bachelor</option>
+                    <option value="master">Master</option>
+                    <option value="phd">Doktortitel</option>
+                </select>
+            </div>
+            <h3>Fachspezifische Angaben</h3>
+            <div class="criterion">
+                <label for="hci_expertise">Expertise im Bereich Mensch-Computer-Interaktion (HCI):</label>
+                <textarea id="hci_expertise" name="hci_expertise" placeholder="Bitte geben Sie Details zu Publikationen, Projekterfahrung oder spezieller Expertise im Bereich HCI ein..."></textarea>
+            </div>
+            <div class="criterion">
+                <label for="autism_experience">Erfahrung im Umgang mit autistischen Nutzern:</label>
+                <textarea id="autism_experience" name="autism_experience" placeholder="Bitte geben Sie an, ob und welche Erfahrungen Sie mit autistischen Zielgruppen gesammelt haben..."></textarea>
+            </div>
+            <div class="criterion">
+                <label for="assistant_experience">Kenntnisse und Erfahrungen im Umgang mit Sprachassistenten:</label>
+                <textarea id="assistant_experience" name="assistant_experience" placeholder="Bitte beschreiben Sie Ihre Erfahrungen im Bereich Sprachassistenztechnologie, z.B. in Android-basierten Systemen..."></textarea>
+            </div>
+        </div>
         <div class="task-section">
+            
             <h3>Aufgabenszenario:</h3>
             <p>Wählen Sie das zu testende Szenario:</p>
             <select id="scenario-select">
@@ -294,8 +324,8 @@
             </div>
             
             <div class="criterion">
-                <h3>Satzstruktur-Komplexität <span class="tooltip">ⓘ<span class="tooltiptext">Evaluiert, wie gut die Ein-Fakt-pro-Satz-Regel eingehalten wird und ob Nebensätze vermieden werden.</span></span></h3>
-                <p>Werden komplexe Satzstrukturen vermieden und maximal ein Fakt pro Satz vermittelt?</p>
+                <h3>Satzstruktur-Komplexität <span class="tooltip">ⓘ<span class="tooltiptext">Evaluiert, wie gut die Minimal Anzahl-Fakt-pro-Satz-Regel eingehalten wird und ob viele Nebensätze vermieden werden.</span></span></h3>
+                <p>Werden komplexe Satzstrukturen vermieden?</p>
                 <div class="slider-container">
                     <input type="range" min="1" max="5" value="3" class="slider" id="complexity-slider">
                     <span class="value-display" id="complexity-value">3</span>
@@ -333,48 +363,6 @@
             </div>
         </div>
         
-        <div class="section">
-            <h2>Funktionale Kriterien</h2>
-            
-            <div class="criterion">
-                <h3>Kommunikationsmodus-Effektivität <span class="tooltip">ⓘ<span class="tooltiptext">Bewertet, wie gut der gewählte Kommunikationsmodus (Standard, Präzise, Detailliert) für die spezifische Anfrage funktioniert.</span></span></h3>
-                <p>Wie gut funktioniert der ausgewählte Kommunikationsmodus für die aktuelle Anfrage?</p>
-                <div class="slider-container">
-                    <input type="range" min="1" max="5" value="3" class="slider" id="mode-slider">
-                    <span class="value-display" id="mode-value">3</span>
-                </div>
-                <div class="slider-labels">
-                    <span>1 (ineffektiv)</span>
-                    <span>5 (sehr effektiv)</span>
-                </div>
-            </div>
-            
-            <div class="criterion">
-                <h3>Prompt-Effektivität <span class="tooltip">ⓘ<span class="tooltiptext">Bewertet den Unterschied zwischen generischen und spezialisierten Prompts in der Antwortqualität.</span></span></h3>
-                <p>Wie unterschiedlich wirken spezialisierte und generische Prompts auf die Antwortqualität?</p>
-                <div class="slider-container">
-                    <input type="range" min="1" max="5" value="3" class="slider" id="prompt-slider">
-                    <span class="value-display" id="prompt-value">3</span>
-                </div>
-                <div class="slider-labels">
-                    <span>1 (ineffektiv)</span>
-                    <span>5 (sehr effektiv)</span>
-                </div>
-            </div>
-            
-            <div class="criterion">
-                <h3>Informationsdichte <span class="tooltip">ⓘ<span class="tooltiptext">Misst, ob die Antwort trotz vereinfachter Sprache alle notwendigen Informationen enthält.</span></span></h3>
-                <p>Enthält die Antwort alle notwendigen Informationen trotz vereinfachter Sprache?</p>
-                <div class="slider-container">
-                    <input type="range" min="1" max="5" value="3" class="slider" id="density-slider">
-                    <span class="value-display" id="density-value">3</span>
-                </div>
-                <div class="slider-labels">
-                    <span>1 (unzureichend)</span>
-                    <span>5 (optimal)</span>
-                </div>
-            </div>
-        </div>
         
         <div class="section">
             <h2>Strukturelle Kriterien</h2>
@@ -474,46 +462,45 @@
                 </div>
             </div>
         </div>
-        
         <div class="section">
-            <h2>Technische Kriterien</h2>
+            <h2>Funktionale Kriterien</h2>
             
             <div class="criterion">
-                <h3>Interface-Zugänglichkeit <span class="tooltip">ⓘ<span class="tooltiptext">Bewertet, wie gut die App-Oberfläche auf die sensorischen und kognitiven Bedürfnisse autistischer Nutzer abgestimmt ist.</span></span></h3>
-                <p>Ist die App-Oberfläche optimal auf die Bedürfnisse autistischer Nutzer abgestimmt?</p>
+                <h3>Kommunikationsmodus-Effektivität <span class="tooltip">ⓘ<span class="tooltiptext">Bewertet, wie gut der gewählte Kommunikationsmodus (Standard, Präzise, Detailliert) für die spezifische Anfrage funktioniert.</span></span></h3>
+                <p>Wie gut funktioniert der ausgewählte Kommunikationsmodus für die aktuelle Anfrage?</p>
                 <div class="slider-container">
-                    <input type="range" min="1" max="5" value="3" class="slider" id="interface-slider">
-                    <span class="value-display" id="interface-value">3</span>
+                    <input type="range" min="1" max="5" value="3" class="slider" id="mode-slider">
+                    <span class="value-display" id="mode-value">3</span>
                 </div>
                 <div class="slider-labels">
-                    <span>1 (nicht angepasst)</span>
-                    <span>5 (perfekt angepasst)</span>
+                    <span>1 (ineffektiv)</span>
+                    <span>5 (sehr effektiv)</span>
                 </div>
             </div>
             
             <div class="criterion">
-                <h3>Fehlerbehandlung <span class="tooltip">ⓘ<span class="tooltiptext">Bewertet, wie das System auf missverstandene oder fehlerhafte Eingaben reagiert und wie hilfreich die Fehlermeldungen sind.</span></span></h3>
-                <p>Wie robust reagiert das System auf missverstandene oder fehlerhafte Eingaben?</p>
+                <h3>Prompt-Effektivität <span class="tooltip">ⓘ<span class="tooltiptext">Bewertet den Unterschied zwischen generischen und spezialisierten Prompts in der Antwortqualität.</span></span></h3>
+                <p>Wie unterschiedlich wirken spezialisierte und generische Prompts auf die Antwortqualität?</p>
                 <div class="slider-container">
-                    <input type="range" min="1" max="5" value="3" class="slider" id="error-slider">
-                    <span class="value-display" id="error-value">3</span>
+                    <input type="range" min="1" max="5" value="3" class="slider" id="prompt-slider">
+                    <span class="value-display" id="prompt-value">3</span>
                 </div>
                 <div class="slider-labels">
-                    <span>1 (nicht robust)</span>
-                    <span>5 (sehr robust)</span>
+                    <span>1 (ineffektiv)</span>
+                    <span>5 (sehr effektiv)</span>
                 </div>
             </div>
             
             <div class="criterion">
-                <h3>Qualität TTS <span class="tooltip">ⓘ<span class="tooltiptext">Bewertet die Verständlichkeit und Annehmlichkeit der Sprachausgabe, besonders für Personen mit sensorischer Empfindlichkeit.</span></span></h3>
-                <p>Ist die Sprachausgabe verständlich und angenehm für sensorisch empfindliche Nutzer?</p>
+                <h3>Informationsdichte <span class="tooltip">ⓘ<span class="tooltiptext">Misst, ob die Antwort trotz vereinfachter Sprache alle notwendigen Informationen enthält.</span></span></h3>
+                <p>Enthält die Antwort alle notwendigen Informationen trotz vereinfachter Sprache?</p>
                 <div class="slider-container">
-                    <input type="range" min="1" max="5" value="3" class="slider" id="tts-slider">
-                    <span class="value-display" id="tts-value">3</span>
+                    <input type="range" min="1" max="5" value="3" class="slider" id="density-slider">
+                    <span class="value-display" id="density-value">3</span>
                 </div>
                 <div class="slider-labels">
-                    <span>1 (unverständlich/unangenehm)</span>
-                    <span>5 (sehr klar/angenehm)</span>
+                    <span>1 (unzureichend)</span>
+                    <span>5 (optimal)</span>
                 </div>
             </div>
         </div>
@@ -544,63 +531,15 @@
                     <span>5 (sehr stark)</span>
                 </div>
             </div>
-            
-            <div class="charts-container">
                 <div class="chart-container">
                     <canvas id="radar-chart"></canvas>
                 </div>
-                <div class="chart-container">
-                    <canvas id="bar-chart"></canvas>
-                </div>
-            </div>
+            
         </div>
         
         <div class="section">
             <h2>Anmerkungen und Beobachtungen</h2>
             <textarea id="notes" placeholder="Bitte geben Sie hier Ihre Anmerkungen und Beobachtungen ein..."></textarea>
-        </div>
-        
-        <!-- Neuer Abschnitt für demografische Angaben -->
-        <div class="section">
-            <h2>Demografische Angaben</h2>
-            <div class="criterion">
-                <label for="age">Alter:</label>
-                <input type="number" id="age" name="age" min="0" max="120" placeholder="Ihr Alter">
-            </div>
-            <div class="criterion">
-                <p>Geschlecht:</p>
-                <input type="radio" id="male" name="gender" value="Männlich">
-                <label for="male">Männlich</label>
-                <input type="radio" id="female" name="gender" value="Weiblich">
-                <label for="female">Weiblich</label>
-                <input type="radio" id="other" name="gender" value="Andere">
-                <label for="other">Andere</label>
-            </div>
-            <div class="criterion">
-                <label for="education">Bildungsniveau:</label>
-                <select id="education" name="education">
-                    <option value="">Bitte auswählen</option>
-                    <option value="none">Kein Abschluss</option>
-                    <option value="highschool">Hauptschulabschluss</option>
-                    <option value="secondary">Realschulabschluss</option>
-                    <option value="bachelor">Bachelor</option>
-                    <option value="master">Master</option>
-                    <option value="phd">Doktortitel</option>
-                </select>
-            </div>
-            <h3>Fachspezifische Angaben</h3>
-            <div class="criterion">
-                <label for="hci_expertise">Expertise im Bereich Mensch-Computer-Interaktion (HCI):</label>
-                <textarea id="hci_expertise" name="hci_expertise" placeholder="Bitte geben Sie Details zu Publikationen, Projekterfahrung oder spezieller Expertise im Bereich HCI ein..."></textarea>
-            </div>
-            <div class="criterion">
-                <label for="autism_experience">Erfahrung im Umgang mit autistischen Nutzern:</label>
-                <textarea id="autism_experience" name="autism_experience" placeholder="Bitte geben Sie an, ob und welche Erfahrungen Sie mit autistischen Zielgruppen gesammelt haben..."></textarea>
-            </div>
-            <div class="criterion">
-                <label for="assistant_experience">Kenntnisse und Erfahrungen im Umgang mit Sprachassistenten:</label>
-                <textarea id="assistant_experience" name="assistant_experience" placeholder="Bitte beschreiben Sie Ihre Erfahrungen im Bereich Sprachassistenztechnologie, z.B. in Android-basierten Systemen..."></textarea>
-            </div>
         </div>
     </div>
     
@@ -708,16 +647,31 @@
         });
         
         // Initialize charts
-        let radarChart, barChart;
+        let radarChart;
         
         function initCharts() {
             const ctx1 = document.getElementById('radar-chart').getContext('2d');
-            const ctx2 = document.getElementById('bar-chart').getContext('2d');
-            
+            const radarLabels = [
+                'Wörtliche Sprache', 
+                'Satzstruktur-Komplexität',
+                'Informationspräzision', 
+                'Kognitive Belastung', 
+                'Kommunikationsmodus-Effektivität',
+                'Praxisrelevanz', 
+                'Angstreduktion', 
+                'Vorhersagbarkeit', 
+                'Detailtiefe', 
+                'Informationsdichte', 
+                'Verbesserungsgrad', 
+                'Satzlängen-Einhaltung', 
+                'Antwortlänge', 
+                'Visuelle Strukturierung'
+            ];
+            const initialData = Array(radarLabels.length).fill(3);
             radarChart = new Chart(ctx1, {
                 type: 'radar',
                 data: {
-                    labels: ['Wörtliche Sprache', 'Satzstruktur', 'Informationspräzision', 'Kognitive Belastung', 'Modus-Effektivität', 'Praxisrelevanz'],
+                    labels: radarLabels,
                     datasets: [{
                         label: 'Bewertung',
                         data: [3, 3, 3, 3, 3, 3],
@@ -744,37 +698,8 @@
                     }
                 }
             });
-            
-            barChart = new Chart(ctx2, {
-                type: 'bar',
-                data: {
-                    labels: ['Standard', 'Optimiert'],
-                    datasets: [{
-                        label: 'Gesamtbewertung',
-                        data: [3, 4],
-                        backgroundColor: [
-                            'rgba(241, 196, 15, 0.7)',
-                            'rgba(46, 204, 113, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgba(241, 196, 15, 1)',
-                            'rgba(46, 204, 113, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 5,
-                            ticks: {
-                                stepSize: 1
-                            }
-                        }
-                    }
-                }
-            });
+            document.getElementById('radar-chart').style.display = 'block';
+            document.getElementById('radar-chart').style.margin = '0 auto';
         }
         
         function updateCharts() {
@@ -785,17 +710,17 @@
                 document.getElementById('precision-slider').value,
                 document.getElementById('cognitive-slider').value,
                 document.getElementById('mode-slider').value,
-                document.getElementById('relevance-slider').value
+                document.getElementById('relevance-slider').value,
+                document.getElementById('anxiety-slider').value,
+                document.getElementById('predictability-slider').value,
+                document.getElementById('detail-slider').value,
+                document.getElementById('density-slider').value,
+                document.getElementById('improvement-slider').value,
+                document.getElementById('sentence-slider').value,
+                document.getElementById('length-slider').value,
+                document.getElementById('visual-slider').value
             ];
             radarChart.update();
-            
-            // Calculate average for standard and optimized
-            const allValues = Array.from(sliders).map(slider => parseInt(slider.value));
-            const avgValue = allValues.reduce((sum, val) => sum + val, 0) / allValues.length;
-            
-            // Simulating optimized being slightly better for demo purposes
-            barChart.data.datasets[0].data = [3, avgValue];
-            barChart.update();
         }
         
         // Initialize charts after page loads
@@ -919,20 +844,35 @@
             }
             
             function addChart(chartCanvas, title) {
-                if (yPosition > 230) {
-                    doc.addPage();
-                    yPosition = margin;
-                }
-                
-                addHeading(title, 2);
-                
-                const imgData = chartCanvas.toDataURL('image/png');
-                const imgWidth = 170;
-                const imgHeight = (chartCanvas.height * imgWidth) / chartCanvas.width;
-                
-                doc.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight);
-                yPosition += imgHeight + 15;
-            }
+    // Always create a new page for the chart
+    doc.addPage();
+    yPosition = margin;
+    
+    addHeading(title, 2);
+    
+    // Verbesserte Qualität für das Radar-Chart
+    // 1. Erstelle ein temporäres Canvas mit höherer Auflösung
+    const tempCanvas = document.createElement('canvas');
+    const ctx = tempCanvas.getContext('2d');
+    // Skaliere die Dimension um Faktor 2 für bessere Qualität
+    tempCanvas.width = chartCanvas.width * 2;
+    tempCanvas.height = chartCanvas.height * 2;
+    
+    // 2. Kopiere das Original-Chart mit höherer Auflösung
+    ctx.scale(2, 2);
+    ctx.drawImage(chartCanvas, 0, 0);
+    
+    // 3. Verwende das hochskalierte Canvas für den PDF-Export
+    const imgData = tempCanvas.toDataURL('image/png', 1.0);
+    const imgWidth = 170;
+    const imgHeight = (chartCanvas.height * imgWidth) / chartCanvas.width;
+    
+    // Center the chart on the page
+    const xPosition = (pageWidth - imgWidth) / 2;
+    
+    doc.addImage(imgData, 'PNG', xPosition, yPosition, imgWidth, imgHeight);
+    yPosition += imgHeight + 15;
+}
             
             // Haupttitel
             doc.setFont('helvetica', 'bold');
@@ -954,6 +894,54 @@
             addText(`Szenario: ${scenarioSelect.options[scenarioSelect.selectedIndex].text}`);
             addText(`Beschreibung: ${scenario.description}`);
             addText(`Beispielanfrage: "${scenario.example}"`);
+            yPosition += 5;
+
+            // Demografische Daten
+            addHeading("Demografische Angaben", 2);
+            // Alter
+            const age = document.getElementById('age').value;
+            addText(`Alter: ${age || 'Nicht angegeben'}`);
+            
+            // Geschlecht
+            let gender = 'Nicht angegeben';
+            const genderElems = document.getElementsByName('gender');
+            for (const elem of genderElems) {
+                if (elem.checked) {
+                    gender = elem.value;
+                    break;
+                }
+            }
+            addText(`Geschlecht: ${gender}`);
+            
+            // Bildungsniveau
+            const educationSelect = document.getElementById('education');
+            let education = 'Nicht angegeben';
+            if (educationSelect.value) {
+                education = educationSelect.options[educationSelect.selectedIndex].text;
+            }
+            addText(`Bildungsniveau: ${education}`);
+            
+            // Fachspezifische Angaben
+            const hciExpertise = document.getElementById('hci_expertise').value;
+            const autismExperience = document.getElementById('autism_experience').value;
+            const assistantExperience = document.getElementById('assistant_experience').value;
+            
+            if (hciExpertise || autismExperience || assistantExperience) {
+                addHeading("Fachspezifische Angaben", 3);
+                
+                if (hciExpertise) {
+                    addText(`HCI Expertise: ${hciExpertise}`);
+                }
+                
+                if (autismExperience) {
+                    addText(`Erfahrung mit autistischen Nutzern: ${autismExperience}`);
+                }
+                
+                if (assistantExperience) {
+                    addText(`Erfahrung mit Sprachassistenten: ${assistantExperience}`);
+                }
+            }
+            
             yPosition += 5;
             
             // Kommunikationsmodus
@@ -995,6 +983,15 @@
                         { name: "Antwortlänge", description: "Angemessene Länge der Antwort für die gestellte Frage", rating: evaluationData.ratings["length-slider"] },
                         { name: "Visuelle Strukturierung", description: "Einsatz visueller Strukturelemente zur Förderung der Lesbarkeit", rating: evaluationData.ratings["visual-slider"] }
                     ]
+                },
+                {
+                    title: "Nutzererfahrungs-Kriterien",
+                    criteria: [
+                        { name: "Praxisrelevanz", description: "Wie anwendbar sind die Antworten in realen Alltagssituationen?", rating: evaluationData.ratings["relevance-slider"] },
+                        { name: "Angstreduktion", description: "Reduziert die Art der Informationsvermittlung soziale Unsicherheiten?", rating: evaluationData.ratings["anxiety-slider"] },
+                        { name: "Vorhersagbarkeit", description: "Wird ein konsistentes Format eingehalten?", rating: evaluationData.ratings["predictability-slider"] },
+                        { name: "Detailtiefe", description: "Wie detailliert werden Spezialthemen behandelt?", rating: evaluationData.ratings["detail-slider"] }
+                    ]
                 }
             ];
             
@@ -1015,7 +1012,6 @@
             
             // Visualisierungen einfügen
             addChart(document.getElementById('radar-chart'), "Kriterien-Radar");
-            addChart(document.getElementById('bar-chart'), "Vergleich Standard vs. Optimiert");
             
             // Anmerkungen
             if (evaluationData.notes) {
