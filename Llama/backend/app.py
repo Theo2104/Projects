@@ -302,19 +302,16 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
     # Erweiterte Kommunikationsmodi mit detaillierteren Anweisungen
     communication_modes = {
         'default': {
-            'length': 4,
             'complexity': 'neutral',
             'style': 'direct',
             'detailed_instructions': "Antworte klar und verständlich, ohne zu sehr ins Detail zu gehen. Verwende maximal 4 Sätze"
         },
         'precise': {
-            'length': 2,
             'complexity': 'low',
             'style': 'scientific',
             'detailed_instructions': "Fasse die wesentlichen Fakten zusammen und liefere eine präzise, evidenzbasierte Antwort. Verwende maximal 2 Sätze"
         },
         'detailed': {
-            'length': 7,
             'complexity': 'high',
             'style': 'structured',
             'detailed_instructions': "Gib eine ausführliche Erklärung mit Schritt-für-Schritt-Anleitungen, die alle Aspekte der Frage abdecken. Verwende maximal 7 Sätze"
@@ -326,7 +323,6 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
     dynamic_prompt = (
         f"{perfect_prompt}"
         f"---\nKommunikationsanforderungen:\n"
-        f"- Satzanzahl: {mode['length']}\n"
         f"- Komplexitätslevel: {mode['complexity']}\n"
         f"- Stil: {mode['style']}\n"
         f"- Detaillierte Anweisungen: {mode['detailed_instructions']}\n\n"
