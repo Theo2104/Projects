@@ -260,8 +260,8 @@ def chat():
         raw_response = executor.submit(
             generate_response, 
             prompt, 
-            temperature=0.2,  # Niedrigere Temperatur für konsistentere Ergebnisse
-            max_tokens=300    # Begrenzte Tokenlänge verhindert ausufernde Antworten
+            temperature=0.2,
+            max_tokens=700    
         ).result()
     except Exception as e:
         return jsonify({"error": str(e)})
