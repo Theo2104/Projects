@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify
 from flask_talisman import Talisman
 from flask_caching import Cache
 from sentence_transformers import SentenceTransformer, util
+from deep_translator import GoogleTranslator
 
 app = Flask(__name__)
 Talisman(app)
@@ -24,12 +25,30 @@ conversation_contexts = {}
 # Thread-Sicherheit
 model_lock = threading.Lock()
 conversation_lock = threading.Lock()
+translator_lock = threading.Lock()
 
 # Executor für parallele Modellaufrufe
 executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 # Embedding-Modell
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+# Übersetzer initialisieren
+def translate_to_english(text):
+    with translator_lock:
+        try:
+            return GoogleTranslator(source='de', target='en').translate(text)
+        except Exception as e:
+            print(f"Übersetzungsfehler (DE->EN): {e}")
+            return text  # Fallback auf Originaltext
+
+def translate_to_german(text):
+    with translator_lock:
+        try:
+            return GoogleTranslator(source='en', target='de').translate(text)
+        except Exception as e:
+            print(f"Übersetzungsfehler (EN->DE): {e}")
+            return text  # Fallback auf Originaltext
 
 def load_model():
     """Lädt das GPT-4All Modell in den Speicher."""
@@ -64,27 +83,36 @@ def update_context(session_id: str, user_input: str, answer: str):
             context = context[-10:]
         conversation_contexts[session_id] = context
 
-def build_context_string(session_id: str) -> str:
+def build_context_string(session_id: str, in_english=False) -> str:
     """
     Baut dynamisch einen Kontext-String zusammen, indem er
     nur die relevanten Nachrichten aus der strukturierten Liste einbezieht.
+    
+    Wenn in_english=True, werden die Rollen auf Englisch übersetzt.
     """
     context = conversation_contexts.get(session_id, [])
     lines = []
+    
+    user_label = "User" if in_english else "Nutzer"
+    assistant_label = "Assistant" if in_english else "Assistent"
+    
     for msg in context:
+        content = msg["content"]
+        # Übersetze den Inhalt ins Englische, wenn gewünscht
+        if in_english:
+            content = translate_to_english(content)
+            
         if msg["role"] == "user":
-            lines.append(f"Nutzer: {msg['content']}")
+            lines.append(f"{user_label}: {content}")
         elif msg["role"] == "assistant":
-            lines.append(f"Assistent: {msg['content']}")
+            lines.append(f"{assistant_label}: {content}")
+            
     return "\n".join(lines)
 
 def clear_context_if_off_topic(session_id: str, user_input: str, threshold: float = 0.4):
     """
     Löscht den gespeicherten Kontext, wenn der aktuelle Input thematisch 
     zu weit von der letzten relevanten Nachricht abweicht.
-    
-    Enthält der neue Input anaphorische Pronomen (z.B. "ihn", "ihm", "seine"),
-    wird angenommen, dass er sich auf vorherige Inhalte bezieht und der Kontext bleibt erhalten.
     """
     # Prüfe auf anaphorische Pronomen im neuen Input
     if re.search(r"\b(ihn|ihm|seine|seiner|ihr|ihre|er|sie|es|damit)\b", user_input, re.IGNORECASE):
@@ -113,6 +141,11 @@ def post_process_answer(answer: str) -> str:
     # Wenn die Antwort eine Frage enthält, schneide alles danach ab
     question_patterns = [
         r"\?(\s|$)",  # Fragezeichen gefolgt von Leerzeichen oder Ende
+        r"No further question",
+        r"Would you like",
+        r"Can I",
+        r"Should I",
+        r"Do you want",
         r"Keine weitere Frage",
         r"Möchtest du",
         r"Kann ich",
@@ -140,7 +173,11 @@ def post_process_answer(answer: str) -> str:
         r"\nDu:",
         r"\nIch:",
         r"\nNutzer:",
-        r"\nAssistent:"
+        r"\nAssistent:",
+        r"\nYou:",
+        r"\nI:",
+        r"\nUser:",
+        r"\nAssistant:"
     ]
     
     for pattern in dialogue_patterns:
@@ -149,41 +186,47 @@ def post_process_answer(answer: str) -> str:
             answer = answer[:match.start()]
             break
     
-    # Entferne Sätze mit selbstreferenziellen Inhalten
+    # Entferne Sätze mit selbstreferenziellen Inhalten (deutsch und englisch)
     self_ref_patterns = [
         r"Ich kann dir[^\.]*\.",
         r"Benötigst du[^\.]*\?",
         r"Möchtest du[^\.]*\?",
         r"Kann ich[^\.]*\?",
-        r"Du möchtest[^\.]*\?"
+        r"Du möchtest[^\.]*\?",
+        r"I can help you[^\.]*\.",
+        r"Do you need[^\.]*\?",
+        r"Would you like[^\.]*\?",
+        r"Can I[^\.]*\?",
+        r"You want[^\.]*\?"
     ]
     
     for pattern in self_ref_patterns:
         answer = re.sub(pattern, "", answer)
     
-    # Entferne explizite Marker und alles danach
-    markers = ["Hinweis:", "Die Frage wurde", "Die Antwort sollte", "Nutzer:", "Frage:", "Falsche",
-               "Bitte korrigiere", "Hier sind einige Beispiele"]
+    # Entferne explizite Marker und alles danach (deutsch und englisch)
+    markers = [
+        "Hinweis:", "Die Frage wurde", "Die Antwort sollte", "Nutzer:", "Frage:", "Falsche",
+        "Bitte korrigiere", "Hier sind einige Beispiele",
+        "Note:", "The question was", "The answer should", "User:", "Question:", "Wrong",
+        "Please correct", "Here are some examples"
+    ]
     
     for marker in markers:
         if marker in answer:
             parts = answer.split(marker)
             answer = parts[0].strip()
     
-    # Entferne "Antwort:" und alles davor
-    if "Antwort:" in answer:
-        parts = answer.split("Antwort:")
-        if len(parts) > 1:
-            answer = parts[1].strip()
+    # Entferne "Antwort:" oder "Answer:" und alles davor
+    for marker in ["Antwort:", "Answer:"]:
+        if marker in answer:
+            parts = answer.split(marker)
+            if len(parts) > 1:
+                answer = parts[1].strip()
     
-    # Entferne alles nach "welche Art von" oder ähnlichen Fragmenten neuer Fragen
+    # Entferne alles nach "welche Art von" oder ähnlichen Fragmenten neuer Fragen (deutsch und englisch)
     new_topic_fragments = [
-        "welche Art von", 
-        "wie funktioniert", 
-        "was ist", 
-        "warum ist", 
-        "wann sollte", 
-        "wo kann"
+        "welche Art von", "wie funktioniert", "was ist", "warum ist", "wann sollte", "wo kann",
+        "what kind of", "how does", "what is", "why is", "when should", "where can"
     ]
     
     for fragment in new_topic_fragments:
@@ -211,12 +254,8 @@ def post_process_answer(answer: str) -> str:
         if sentence not in unique_sentences:
             unique_sentences.append(sentence)
     
-    
-    # Wenn weniger als 3 Sätze vorhanden sind, behalte alle bei
-    final_sentences = unique_sentences
-    
     # Stelle die Antwort wieder zusammen
-    processed_answer = ' '.join(final_sentences)
+    processed_answer = ' '.join(unique_sentences)
     
     # Entferne überflüssige Leerzeichen
     processed_answer = re.sub(r'\s+', ' ', processed_answer)
@@ -244,74 +283,88 @@ def chat():
     if cached_response:
         return jsonify(cached_response)
 
-    # Dynamisch den Kontext zusammenbauen
-    context_str = build_context_string(session_id)
+    # Übersetze die Nutzereingabe ins Englische
+    translated_input = translate_to_english(user_input)
+    print(f"Übersetzt: '{user_input}' -> '{translated_input}'")
 
-    
+    # Dynamisch den Kontext in englischer Sprache zusammenbauen
+    context_str = build_context_string(session_id, in_english=True)
+
+    # Englischer Prompt für bessere Ergebnisse
     prompt = (
-    "Deine Aufgabe ist es, einem autistischen Nutzer mit klarer, strukturierter Kommunikation zu helfen. Befolge diese Schritte:\n\n"
-    "1. Analysiere die Kernfrage präzise:\n"
-    "   - Identifiziere und liste die Schlüsselelemente der Frage auf.\n"
-    "   - Zerlege komplexe Anweisungen in die kleinsten möglichen Schritte.\n\n"
-    "2. Verwende wörtliche, direkte Sprache:\n"
-    "   - Vermeide Idiome, Metaphern oder mehrdeutige Ausdrücke.\n"
-    "   - Generiere mehrere Varianten und wähle die verständlichste und direkteste Formulierung aus.\n\n"
-    "3. Gib strukturierte, schrittweise Erklärungen:\n"
-    "   - Stelle sicher, dass maximal 1 Fakt pro Satz wiedergegeben wird.\n"
-    "   - Achte darauf, dass jeder Schritt auf dem vorherigen logisch aufbaut.\n"
-    "   - Vermeide verschachtelte Satzstrukturen, um eine einfache verständliche, lineare Erklärung zu ermöglichen.\n\n"
-    "4. Halte Konsistenz aufrecht und überprüfe das Verständnis:\n"
-    "   - Stelle kontinuierlich sicher, dass jeder Teil deiner Antwort mit der ursprünglichen Frage übereinstimmt.\n\n"
-    "5. Stelle sicher, dass alle Informationen objektiv und überprüfbar sind:\n"
-    "   - Vermeide emotionale Sprache und subjektive Interpretationen vollständig.\n"
-    "   - Nutze ausschließlich überprüfbare Fakten und klare, neutrale Formulierungen.\n\n"
-    "6. Stelle sicher, dass deine Antwort vollständig und präzise ist:\n"
-    "   - Überprüfe, ob du alle relevanten Details in deiner Antwort enthalten hast.\n"
-    "   - Vermeide es, Inhalte zu kürzen, wenn dadurch relevante Informationen verloren gehen.\n"
-    "   - Entferne interne Modellgedanken, Spekulationen oder Bewertungen vollständig.\n\n"
-    "7. Berücksichtige multimodale Verarbeitungspräferenzen:\n"
-    "   - Biete bei komplexen Konzepten strukturierte Auflistungen oder einfache Visualisierungen an.\n"
-    "   - Verwende Listen, Tabellen oder hierarchische Strukturen für mehrteilige Informationen.\n"
-    "   - Beschreibe visuelle Elemente zusätzlich in Text, um verschiedene Verarbeitungswege zu unterstützen.\n\n"
-    "8. Optimiere die visuelle Struktur zur Vermeidung sensorischer Überlastung:\n"
-    "   - Nutze ausreichend Leerraum zwischen logischen Abschnitten.\n"
-    "   - Vermeide zu dichte Textblöcke und lange Absätze.\n"
-    "   - Hebe wichtige Schlüsselinformationen durch einheitliche, nicht ablenkende Formatierung hervor.\n\n"
-    "9. Passe den Kommunikationsstil individuell an:\n"
-    "   - Berücksichtige den gewünschten Detailgrad anhand der Anfrage.\n"
-    "   - Verwende Begriffe und Erklärungsebenen, die dem Verständnislevel des Nutzers entsprechen.\n"
-    "   - Biete bei Bedarf sowohl vereinfachte als auch detailliertere Erklärungen an.\n\n"
-    "10. Implementiere einen Feedback-Mechanismus:\n"
-    "    - Identifiziere bei Rückfragen den spezifischen unklaren Teil.\n"
-    "    - Formuliere alternative Erklärungen für schwierige Konzepte.\n"
-    "    - Frage bei Bedarf nach, welche Art der Erklärung am hilfreichsten wäre.\n\n"
-    "11. Verknüpfe mit relevanten Spezialinteressen, wenn möglich:\n"
-    "    - Nutze Beispiele aus Bereichen wie Naturwissenschaften, Logik oder systematischen Prozessen.\n"
-    "    - Stelle Verbindungen zu verwandten Konzepten her, die verständnisfördernd sein könnten.\n\n"
-    "Antwortkonfiguration:\n"
-    "- Denke nicht laut nach.\n"
-    "- Schreibe keine internen Überlegungen, keine Kontrollpunkte, keine Selbstkritik, keine Folgeanweisungen.\n"
-    "- Beginne direkt mit der Antwort.\n"
-    "- Keine Hinweise auf die Frageformulierung oder die eigene Antwortstruktur.\n"
-    "- Keine Einleitung wie 'Hier ist deine Antwort' oder 'Ich denke, dass...'\n\n"
-    "Deine Antwort:\n"
+    "Your task is to help an autistic user with clear, structured communication. Follow these steps:\n\n"
+    "1. Analyze the core question precisely:\n"
+    "   - Identify and list the key elements of the question.\n"
+    "   - Break down complex instructions into the smallest possible steps.\n\n"
+    "2. Use literal, direct language:\n"
+    "   - Avoid idioms, metaphors, or ambiguous expressions.\n"
+    "   - Generate multiple variants and choose the clearest and most direct formulation.\n\n"
+    "3. Provide structured, step-by-step explanations:\n"
+    "   - Ensure that a maximum of 1 fact is reported per sentence.\n"
+    "   - Make sure that each step builds logically on the previous one.\n"
+    "   - Avoid nested sentence structures to enable simple, understandable, linear explanation.\n\n"
+    "4. Maintain consistency and check understanding:\n"
+    "   - Continuously ensure that each part of your answer is consistent with the original question.\n\n"
+    "5. Ensure that all information is objective and verifiable:\n"
+    "   - Completely avoid emotional language and subjective interpretations.\n"
+    "   - Use only verifiable facts and clear, neutral formulations.\n\n"
+    "6. Ensure that your answer is complete and precise:\n"
+    "   - Check whether you have included all relevant details in your answer.\n"
+    "   - Avoid cutting content if relevant information is lost.\n"
+    "   - Completely remove internal model thoughts, speculations, or evaluations.\n\n"
+    "7. Consider multimodal processing preferences:\n"
+    "   - For complex concepts, offer structured listings or simple visualizations.\n"
+    "   - Use lists, tables, or hierarchical structures for multi-part information.\n"
+    "   - Also describe visual elements in text to support different processing paths.\n\n"
+    "8. Optimize the visual structure to avoid sensory overload:\n"
+    "   - Use sufficient empty space between logical sections.\n"
+    "   - Avoid text blocks that are too dense and long paragraphs.\n"
+    "   - Highlight important key information through uniform, non-distracting formatting.\n\n"
+    "9. Adapt the communication style individually:\n"
+    "   - Consider the desired level of detail based on the request.\n"
+    "   - Use terms and explanation levels that correspond to the user's level of understanding.\n"
+    "   - Offer both simplified and more detailed explanations if necessary.\n\n"
+    "10. Implement a feedback mechanism:\n"
+    "    - For queries, identify the specific unclear part.\n"
+    "    - Formulate alternative explanations for difficult concepts.\n"
+    "    - If necessary, ask what kind of explanation would be most helpful.\n\n"
+    "11. Link with relevant special interests, if possible:\n"
+    "    - Use examples from areas such as natural sciences, logic, or systematic processes.\n"
+    "    - Establish connections to related concepts that could be conducive to understanding.\n\n"
+    "Answer configuration:\n"
+    "- Do not think out loud.\n"
+    "- Do not write internal considerations, no control points, no self-criticism, no follow-up instructions.\n"
+    "- Start directly with the answer.\n"
+    "- No reference to the question formulation or the answer structure itself.\n"
+    "- No introduction like 'Here is your answer' or 'I think that...'\n\n"
+    "Your answer:\n"
     f"{context_str}\n\n"
-    f"Aktuelle Frage: {user_input}\n\n"
-    "Deine Antwort:"
+    f"Current question: {translated_input}\n\n"
+    "Your answer:"
 )
 
-
     try:
+        # Generiere Antwort auf Englisch
         raw_response = executor.submit(
             generate_response, 
             prompt, 
             temperature=0.2   
         ).result()
+        
+        # Post-Processing der englischen Antwort
+        processed_en_response = post_process_answer(raw_response)
+        
+        # Übersetze zurück ins Deutsche
+        german_response = translate_to_german(processed_en_response)
+        print(f"Antwort übersetzt: EN -> DE")
+        
+        # Finale Nachbearbeitung der deutschen Antwort
+        answer = post_process_answer(german_response)
+        
     except Exception as e:
         return jsonify({"error": str(e)})
 
-    # Post-Processing: Unerwünschte Zusatztexte entfernen
-    answer = post_process_answer(raw_response)
+    # Kontext mit Originaleingabe und übersetzter Antwort aktualisieren
     update_context(session_id, user_input, answer)
 
     explanation_text = ""
@@ -325,18 +378,33 @@ def chat():
 
 def generate_explanation(answer, user_input):
     """Generiert eine einfache Erklärung für die Antwort mit verbesserter Anweisung."""
+    # Übersetze für die Erklärung ins Englische
+    en_answer = translate_to_english(answer)
+    en_input = translate_to_english(user_input)
+    
     explanation_prompt = (
-        "Erkläre kurz und einfach, warum diese Antwort für einen autistischen Nutzer hilfreich ist:\n"
-        f"Frage: {user_input}\n"
-        f"Antwort: {answer}\n\n"
-        "Beschränke dich auf maximal 2 einfache Sätze. Deine Erklärung:"
+        "Explain briefly and simply why this answer is helpful for an autistic user:\n"
+        f"Question: {en_input}\n"
+        f"Answer: {en_answer}\n\n"
+        "Limit yourself to a maximum of 2 simple sentences. Your explanation:"
     )
+    
     try:
+        # Generiere Erklärung auf Englisch
         raw_explanation = model.generate(
             explanation_prompt, 
             temp=0.2
         )
-        return post_process_answer(raw_explanation)  # Auch die Erklärung bereinigen
+        
+        # Bereinige die englische Erklärung
+        processed_en_explanation = post_process_answer(raw_explanation)
+        
+        # Übersetze ins Deutsche
+        german_explanation = translate_to_german(processed_en_explanation)
+        
+        # Finale Bereinigung
+        return post_process_answer(german_explanation)
+        
     except Exception as e:
         return f"Fehler bei der Erklärung: {str(e)}"
 
