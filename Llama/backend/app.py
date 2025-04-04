@@ -20,6 +20,8 @@ model = None
 
 # Gesprächskontexte als strukturierte Liste speichern
 conversation_contexts = {}
+# Speichern des letzten verwendeten Kommunikationsmodus pro Session
+last_used_modes = {}
 
 # Thread-Sicherheit
 model_lock = threading.Lock()
@@ -49,21 +51,11 @@ def warm_up_model():
         print("Model pre-warming failed:", e)
 
 def generate_response(prompt, communication_mode='default'):
-    """Generiert eine Antwort mit modalitätsabhängigen Parametern."""
-    mode_settings = {
-        'default': {'temp': 0.1, 'max_tokens': 400},
-        'precise': {'temp': 0.05, 'max_tokens': 200},
-        'detailed': {'temp': 0.15, 'max_tokens': 700},
-    }
-    
-    settings = mode_settings.get(communication_mode, mode_settings['default'])
-    
+    """Generiert eine Antwort ohne explizite Ausgabeparameter."""
+    # Keine expliziten Parameter für max_tokens oder temperature
+    # Stattdessen werden Instruktionen im Prompt selbst genutzt
     with model_lock:
-        return model.generate(
-            prompt, 
-            temp=settings['temp'], 
-            max_tokens=settings['max_tokens']
-        )
+        return model.generate(prompt)
 
 def update_context(session_id: str, user_input: str, answer: str, communication_mode: str):
     """Speichert den Gesprächskontext mit Kommunikationsmodus."""
@@ -83,6 +75,21 @@ def update_context(session_id: str, user_input: str, answer: str, communication_
         if len(context) > 10:
             context = context[-10:]
         conversation_contexts[session_id] = context
+        # Aktualisiere den letzten verwendeten Modus
+        last_used_modes[session_id] = communication_mode
+
+def check_mode_change(session_id: str, current_mode: str):
+    """
+    Überprüft, ob sich der Kommunikationsmodus geändert hat.
+    Wenn ja, wird der Kontext zurückgesetzt.
+    """
+    with conversation_lock:
+        last_mode = last_used_modes.get(session_id)
+        if last_mode is not None and last_mode != current_mode:
+            print(f"Kommunikationsmodus geändert: {last_mode} -> {current_mode}. Kontext wird zurückgesetzt.")
+            conversation_contexts[session_id] = []
+            return True
+        return False
 
 def build_context_string(session_id: str) -> str:
     """
@@ -135,19 +142,15 @@ def post_process_answer(answer: str) -> str:
     if "Kontrollpunkte:" in answer:
         answer = answer.split("Kontrollpunkte:")[0].strip()
     
-    
     if "Die Antwort enthält" in answer:
         answer = answer.split("Die Antwort enthält")[0].strip()
     
-
     if "Eine bessere Antwort wäre:" in answer:
         answer = answer.split("Eine bessere Antwort wäre:")[-1].strip()
 
     if "Kontrollfragen:" in answer:
         answer = answer.split("Kontrollfragen:")[0].strip()
 
-    if "---" in answer:
-        answer = answer.split("---")[0].strip()
 
     if "Folgeanweisungen" in answer:
         answer = answer.split("Folgeanweisungen")[0].strip()
@@ -265,11 +268,11 @@ def post_process_answer(answer: str) -> str:
 
 def generate_dynamic_prompt(user_input, context_str, communication_mode='default'):
     """
-    Erzeugt einen dynamischen Prompt, der den perfekten Prompt für neurodiverse Kommunikation
-    integriert. Dieser Prompt kombiniert die festgelegten Kommunikationsprinzipien mit dem 
-    aktuellen Gesprächskontext und der Nutzeranfrage.
+    Erzeugt einen dynamischen Prompt, der Kommunikationsprinzipien mit dem 
+    aktuellen Gesprächskontext und der Nutzeranfrage kombiniert.
+    Statt technische Parameter verwendet er inhaltliche Anweisungen.
     """
-    # Perfekter Prompt für autistische Nutzer (auf Deutsch)
+    # Grundlegende Prompt-Struktur
     perfect_prompt = (
         "Deine Aufgabe ist es, einem autistischen Nutzer mit klarer, strukturierter Kommunikation zu helfen. Befolge diese Schritte:\n\n"
         "1. Analysiere die Kernfrage präzise:\n"
@@ -277,44 +280,46 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
         "   - Zerlege komplexe Anweisungen in die kleinsten möglichen Schritte.\n\n"
         "2. Verwende wörtliche, direkte Sprache:\n"
         "   - Vermeide Idiome, Metaphern oder mehrdeutige Ausdrücke.\n"
-        "   - Drücke alle Ideen klar und sachlich aus, mit konkreten Beispielen, wenn nötig.\n\n"
+        "   - Generiere mehrere Varianten und wähle die verständlichste und direkteste Formulierung aus.\n\n"
         "3. Gib strukturierte, schrittweise Erklärungen:\n"
         "   - Stelle sicher, dass maximal 1 Fakt pro Satz wiedergegeben wird.\n"
-        "   - Stelle sicher, dass jeder Schritt auf den vorherigen logisch aufbaut.\n"
-        "   - Vermeide verschachtelte Satzstrukturen.\n\n"
+        "   - Achte darauf, dass jeder Schritt auf dem vorherigen logisch aufbaut.\n"
+        "   - Vermeide verschachtelte Satzstrukturen, um eine einfache verständliche, lineare Erklärung zu ermöglichen.\n\n"
         "4. Halte Konsistenz aufrecht und überprüfe das Verständnis:\n"
-        "   - Stelle kontinuierlich sicher, dass jeder Teil deiner Antwort mit der ursprünglichen Frage übereinstimmt.\n\n"
-        "5. Priorisiere sachliche und objektive Informationen:\n"
-        "   - Begrenze emotionale Sprache und subjektive Interpretationen.\n"
-        "   - Stelle sicher, dass jede Aussage durch objektive Daten oder klar definierte Argumente gestützt wird.\n\n"
-        "6. Verliere keine wichtigen Fakten und Informationen:\n"
+        "   - Stelle kontinuierlich sicher, dass jeder Teil deiner Antwort mit der ursprünglichen Frage übereinstimmt.\n"
+        "5. Stelle sicher, dass alle Informationen objektiv und überprüfbar sind:\n"
+        "   - Vermeide emotionale Sprache und subjektive Interpretationen vollständig.\n"
+        "   - Nutze ausschließlich überprüfbare Fakten und klare, neutrale Formulierungen.\n\n"
+        "6. Stelle sicher, dass deine Antwort vollständig und präzise ist:\n"
         "   - Überprüfe, ob du alle relevanten Details in deiner Antwort enthalten hast.\n"
-        "   - Keine internen Modellgedanken oder Bewertungen\n\n"
+        "   - Vermeide es, Inhalte zu kürzen, wenn dadurch relevante Informationen verloren gehen.\n"
+        "- Entferne interne Modellgedanken, Spekulationen oder Bewertungen vollständig.\n\n"
         "Antwortkonfiguration:\n"
         "- Denke nicht laut nach.\n"
         "- Schreibe keine internen Überlegungen, keine Kontrollpunkte, keine Selbstkritik, keine Folgeanweisungen.\n"
+        "- Verwende die Kommunikationsregeln, aber erkläre sie nicht im Text.\n"
         "- Beginne direkt mit der Antwort.\n"
         "- Keine Hinweise auf die Frageformulierung oder die eigene Antwortstruktur.\n"
         "- Keine Einleitung wie 'Hier ist deine Antwort' oder 'Ich denke, dass...'\n\n"
         "Deine Antwort:\n"
     )
     
-    # Erweiterte Kommunikationsmodi mit detaillierteren Anweisungen
+    # Erweiterte Kommunikationsmodi mit natürlicheren Anweisungen statt numerischer Parameter
     communication_modes = {
         'default': {
-            'complexity': 'neutral',
-            'style': 'direct',
-            'detailed_instructions': "Antworte klar und verständlich, ohne zu sehr ins Detail zu gehen. Verwende maximal 4 Sätze"
+            'instructions':"Gib eine klare, direktere Antwort. Beschränke deine Antwort auf das Wesentliche. "
+                           "Halte dich knapp. "
+                           "Vermeide Informationen, die nicht direkt zur Frage beitragen."
         },
         'precise': {
-            'complexity': 'low',
-            'style': 'scientific',
-            'detailed_instructions': "Fasse die wesentlichen Fakten zusammen und liefere eine präzise, evidenzbasierte Antwort. Verwende maximal 2 Sätze"
+            'instructions': "Gib eine sehr präzise, wissenschaftlich fundierte Antwort. "
+                           "Fasse dich besonders kurz. "
+                           "Konzentriere dich auf die wichtigsten Fakten und vermeide jegliche Zusatzinformationen."
         },
         'detailed': {
-            'complexity': 'high',
-            'style': 'structured',
-            'detailed_instructions': "Gib eine ausführliche Erklärung mit Schritt-für-Schritt-Anleitungen, die alle Aspekte der Frage abdecken. Verwende maximal 7 Sätze"
+            'instructions':"Gib eine ausführlichere Erklärung mit allen wichtigen Details. "
+                           "Stelle sicher, dass alle relevanten Aspekte abgedeckt sind. "
+                           "Gliedere deine Antwort in logische Abschnitte."
         }    
     }
     
@@ -323,9 +328,7 @@ def generate_dynamic_prompt(user_input, context_str, communication_mode='default
     dynamic_prompt = (
         f"{perfect_prompt}"
         f"---\nKommunikationsanforderungen:\n"
-        f"- Komplexitätslevel: {mode['complexity']}\n"
-        f"- Stil: {mode['style']}\n"
-        f"- Detaillierte Anweisungen: {mode['detailed_instructions']}\n\n"
+        f"{mode['instructions']}\n\n"
         f"Bisheriger Kontext:\n{context_str}\n\n"
         f"Aktuelle Frage: {user_input}\n\n"
         "Antwort:"
@@ -345,12 +348,19 @@ def chat():
     explain_flag = data.get("explain", False)
     communication_mode = data.get("mode", 'default')
 
-    # Prüfe, ob der Kontext thematisch passt – ansonsten zurücksetzen
-    clear_context_if_off_topic(session_id, user_input)
+    # Prüfe, ob sich der Kommunikationsmodus geändert hat
+    mode_changed = check_mode_change(session_id, communication_mode)
+    
+    # Wenn der Modus sich nicht geändert hat, prüfe, ob der Kontext thematisch passt
+    if not mode_changed:
+        clear_context_if_off_topic(session_id, user_input)
 
-    # Cache prüfen
-    cached_key = f"{session_id}:{user_input}:{explain_flag}:{communication_mode}"
-    cached_response = cache.get(cached_key)
+    # Cache prüfen (nur verwenden, wenn der Modus sich nicht geändert hat)
+    cached_response = None
+    if not mode_changed:
+        cached_key = f"{session_id}:{user_input}:{explain_flag}:{communication_mode}"
+        cached_response = cache.get(cached_key)
+    
     if cached_response:
         return jsonify(cached_response)
 
@@ -369,11 +379,13 @@ def chat():
             prompt,
             communication_mode
         ).result()
+        print(f"Raw model response: {raw_response}")  # Log raw response
     except Exception as e:
         return jsonify({"error": str(e)})
 
     # Post-Processing: Unerwünschte Zusatztexte entfernen
     answer = post_process_answer(raw_response)
+    print(f"Post-processed response: {answer}")
     update_context(session_id, user_input, answer, communication_mode)
 
     explanation_text = ""
@@ -381,16 +393,20 @@ def chat():
         explanation_text = generate_explanation(answer, user_input, communication_mode)
 
     response_data = {"response": answer, "explanation": explanation_text}
-    cache.set(cached_key, response_data, timeout=300)
+    
+    # Cache nur setzen, wenn der Modus sich nicht geändert hat
+    if not mode_changed:
+        cached_key = f"{session_id}:{user_input}:{explain_flag}:{communication_mode}"
+        cache.set(cached_key, response_data, timeout=300)
 
     return jsonify(response_data)
 
 def generate_explanation(answer, user_input, communication_mode):
-    """Generiert eine kontextabhängige Erklärung."""
+    """Generiert eine kontextabhängige Erklärung ohne explizite numerische Parameter."""
     explanation_styles = {
-        'default': "Erkläre kurz und einfach deine Ausgabe.",
-        'precise': "Gib eine wissenschaftlich präzise Erklärung für deine Ausgabe.",
-        'detailed': "Biete eine strukturierte, schrittweise Erklärung deiner Ausgabe."
+        'default': "Erstelle eine kurze und verständliche Erklärung für deine Ausgabe.",
+        'precise': "Erstelle eine knappe, wissenschaftlich präzise Erklärung für deine Ausgabe.",
+        'detailed': "Biete eine strukturierte, umfassende Erklärung deiner Ausgabe."
     }
     
     explanation_prompt = (
@@ -404,16 +420,14 @@ def generate_explanation(answer, user_input, communication_mode):
         "1. Erkläre die Logik hinter deiner Antwort\n"
         "2. Verdeutliche Zusammenhänge zwischen Frage und Antwort\n"
         "3. Identifiziere potenzielle Unklarheiten und kläre diese\n"
-        "4. Vermeide Wiederholung der Originalntwort\n\n"
+        "4. Vermeide Wiederholung der Originalntwort\n"
+        "5. Halte deine Erklärung kurz und prägnant\n\n"
         "Deine Erklärung:"
     )
     
     try:
-        raw_explanation = model.generate(
-            explanation_prompt, 
-            temp=0.2, 
-            max_tokens=300
-        )
+        # Keine expliziten Parameter für Antwortgenerierung
+        raw_explanation = model.generate(explanation_prompt)
         return post_process_answer(raw_explanation)
     except Exception as e:
         return f"Fehler bei der Erklärung: {str(e)}"
