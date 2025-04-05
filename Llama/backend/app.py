@@ -109,29 +109,84 @@ def build_context_string(session_id: str, in_english=False) -> str:
             
     return "\n".join(lines)
 
-def clear_context_if_off_topic(session_id: str, user_input: str, threshold: float = 0.4):
+def should_keep_context_llm(session_id: str, user_input: str) -> bool:
     """
-    Löscht den gespeicherten Kontext, wenn der aktuelle Input thematisch 
-    zu weit von der letzten relevanten Nachricht abweicht.
+    Verwendet das LLM, um zu entscheiden, ob der aktuelle Kontext beibehalten werden soll.
+    Basiert auf einer Analyse des vorherigen Gesprächs und der neuen Benutzereingabe.
+    
+    Args:
+        session_id: Die ID der aktuellen Sitzung
+        user_input: Die neue Benutzereingabe
+        
+    Returns:
+        bool: True, wenn der Kontext beibehalten werden soll, sonst False
     """
-    # Prüfe auf anaphorische Pronomen im neuen Input
-    if re.search(r"\b(ihn|ihm|seine|seiner|ihr|ihre|er|sie|es|damit)\b", user_input, re.IGNORECASE):
-        return
-
     context = conversation_contexts.get(session_id, [])
-    if context:
-        # Kombiniere die letzten Nachrichten, um einen repräsentativen Kontext zu erhalten
-        last_relevant = ""
-        for msg in reversed(context):
-            last_relevant = msg["content"] + " " + last_relevant
-            if msg["role"] == "assistant":
-                break
-        if last_relevant:
-            embeddings = embedding_model.encode([last_relevant, user_input], convert_to_tensor=True)
-            similarity = float(util.pytorch_cos_sim(embeddings[0], embeddings[1]))
-            if similarity < threshold:
+    if not context:
+        return False  # Kein Kontext vorhanden
+
+    # Nur die letzten 4 Nachrichten (2 Austausche) für den Kontext verwenden
+    last_exchanges = context[-4:] if len(context) >= 4 else context
+    
+    # Erstelle einen formatierten Kontext-String
+    context_string = ""
+    for i, msg in enumerate(last_exchanges):
+        role = "User" if msg["role"] == "user" else "Assistant"
+        # Übersetze den Kontext ins Englische für bessere Ergebnisse
+        content = translate_to_english(msg["content"]) 
+        context_string += f"{role}: {content}\n"
+    
+    # Übersetze auch die neue Eingabe ins Englische
+    en_user_input = translate_to_english(user_input)
+    
+    # Prompt für die Kontextbeurteilung
+    prompt = f"""
+    Analyze the conversation history and the new user input. Determine if the new input is
+    continuing the same topic or starting a new conversation.
+    
+    Previous conversation:
+    {context_string}
+    
+    New user input: {en_user_input}
+    
+    Consider these factors:
+    1. Is the new input referring to something mentioned in the previous conversation?
+    2. Is the new input asking for clarification or more details about the previous topic?
+    3. Is there a thematic connection between the new input and the previous conversation?
+    4. Does the new input contain pronouns or references that only make sense in the context of the previous conversation?
+    
+    Based on your analysis, is the new input continuing the same conversation topic or starting a new one?
+    Answer with only 'yes' (continue same conversation) or 'no' (new conversation).
+    """
+    
+    try:
+        # Generiere eine Entscheidung mit dem Modell
+        with model_lock:
+            response = model.generate(prompt, temp=0.1).strip().lower()
+        
+        # Extrahiere die Antwort (yes/no) aus der möglicherweise längeren Antwort
+        first_line = response.split('\n')[0] if '\n' in response else response
+        first_word = first_line.split()[0] if ' ' in first_line else first_line
+        
+        decision = 'yes' in first_word.lower()
+        status = "beibehalten" if decision else "zurückgesetzt"
+        print(f"LLM Kontext-Entscheidung: {status} (Antwort: '{first_line}')")
+        return decision
+        
+    except Exception as e:
+        print(f"Fehler bei der LLM-Kontextbeurteilung: {e}")
+        # Fallback: Kontext beibehalten bei Fehler (vorsichtigere Option)
+        return True
+
+def clear_context_if_off_topic(session_id: str, user_input: str):
+    """
+    Prüft mit dem LLM, ob der Kontext beibehalten oder zurückgesetzt werden soll.
+    """
+    if not should_keep_context_llm(session_id, user_input):
+        with conversation_lock:
+            if session_id in conversation_contexts:
                 conversation_contexts[session_id] = []
-                print(f"Kontext zurückgesetzt (Ähnlichkeit: {similarity:.2f}).")
+                print("Kontext zurückgesetzt: Neues Thema erkannt von LLM.")
 
 def post_process_answer(answer: str) -> str:
     """
@@ -274,7 +329,7 @@ def chat():
     user_input = data.get("input", "").strip()
     explain_flag = data.get("explain", False)
 
-    # Prüfe, ob der Kontext thematisch passt – ansonsten zurücksetzen
+    # Verwende die neue Prompt-basierte Kontextbehandlung
     clear_context_if_off_topic(session_id, user_input)
 
     # Cache prüfen
