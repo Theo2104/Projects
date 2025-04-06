@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognitive Walkthrough Evaluation – Sprachassistent für autistische Nutzer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    h1, h2, h3 {
+      color: #2c3e50;
+    }
+    .section {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .criterion {
+      margin-bottom: 25px;
+    }
+    .slider-container {
+      display: flex;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .slider {
+      flex-grow: 1;
+      height: 5px;
+      border-radius: 5px;
+      background: #ddd;
+      outline: none;
+    }
+    .slider::-webkit-slider-thumb {
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #3498db;
+      cursor: pointer;
+    }
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      font-size: 12px;
+      color: #7f8c8d;
+    }
+    .value-display {
+      min-width: 30px;
+      text-align: center;
+      margin-left: 10px;
+      font-weight: bold;
+      color: #3498db;
+    }
+    .task-section {
+      background-color: #f1f9fe;
+      border-left: 4px solid #3498db;
+      padding: 10px 15px;
+      margin-bottom: 15px;
+    }
+    textarea, input[type="number"], select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      resize: vertical;
+      min-height: 40px;
+      margin-bottom: 10px;
+    }
+    label {
+      font-weight: bold;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 20px;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .history-section {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px dashed #ccc;
+      display: none;
+    }
+    .history-item {
+      background-color: #f8f9fa;
+      border-radius: 5px;
+      padding: 10px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .history-item:hover {
+      background-color: #e9ecef;
+    }
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      margin-left: 5px;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 250px;
+      background-color: #555;
+      color: #fff;
+      text-align: left;
+      border-radius: 6px;
+      padding: 10px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -125px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cognitive Walkthrough Evaluation für autistische Nutzer</h1>
+  <p>Dieses Tool dient zur Evaluation der Prompt-Architektur eines Sprachassistenten anhand eines Cognitive Walkthroughs. Bitte erfassen Sie sowohl quantitative Bewertungen als auch qualitative Rückmeldungen.</p>
+  
+  <!-- Demografische Angaben -->
+  <div class="section">
+    <h2>Demografische Angaben</h2>
+    <div class="criterion">
+      <label for="age">Alter:</label>
+      <input type="number" id="age" name="age" min="0" max="120" placeholder="Ihr Alter">
+    </div>
+    <div class="criterion">
+      <p>Geschlecht:</p>
+      <input type="radio" id="male" name="gender" value="Männlich">
+      <label for="male">Männlich</label>
+      <input type="radio" id="female" name="gender" value="Weiblich">
+      <label for="female">Weiblich</label>
+      <input type="radio" id="other" name="gender" value="Andere">
+      <label for="other">Andere</label>
+    </div>
+    <div class="criterion">
+      <label for="education">Bildungsniveau:</label>
+      <select id="education" name="education">
+        <option value="">Bitte auswählen</option>
+        <option value="none">Kein Abschluss</option>
+        <option value="highschool">Hauptschulabschluss</option>
+        <option value="secondary">Realschulabschluss</option>
+        <option value="abitur">Abitur</option>
+        <option value="bachelor">Bachelor</option>
+        <option value="master">Master</option>
+        <option value="phd">Doktortitel</option>
+      </select>
+    </div>
+    <h3>Fachspezifische Angaben</h3>
+    <div class="criterion">
+      <label for="hci_expertise">Expertise im Bereich HCI:</label>
+      <textarea id="hci_expertise" name="hci_expertise" placeholder="Bitte geben Sie Details zu Publikationen, Projekterfahrung etc. ein..."></textarea>
+    </div>
+    <div class="criterion">
+      <label for="autism_experience">Erfahrung mit autistischen Nutzern:</label>
+      <textarea id="autism_experience" name="autism_experience" placeholder="Bitte beschreiben Sie Ihre Erfahrungen mit autistischen Zielgruppen..."></textarea>
+    </div>
+    <div class="criterion">
+      <label for="assistant_experience">Erfahrung mit Sprachassistenten:</label>
+      <textarea id="assistant_experience" name="assistant_experience" placeholder="Bitte beschreiben Sie Ihre Erfahrungen im Bereich Sprachassistenztechnologie..."></textarea>
+    </div>
+  </div>
+  
+  <!-- Szenarioauswahl -->
+  <div class="section task-section">
+    <h2>Testszenario</h2>
+    <p>Wählen Sie das zu testende Szenario:</p>
+    <select id="scenario-select">
+      <option value="scenario1">Szenario 1: "Was ist Photosynthese?"</option>
+      <option value="scenario2">Szenario 2: "Wie funktioniert ein Toaster?"</option>
+      <option value="scenario3">Szenario 3: "Ich muss morgen zum Arzt. Was sollte ich beachten?"</option>
+      <option value="scenario4">Szenario 4: "Mein Computer funktioniert nicht richtig. Was kann ich tun?"</option>
+      <option value="scenario5">Szenario 5: "Ich bin überfordert mit meinen Aufgaben und weiß nicht, wie ich anfangen soll."</option>
+      <option value="scenario6">Szenario 6: "Mehrstufiger Dialog"</option>
+    </select>
+    <div id="scenario-details" class="notes">
+      <!-- Dynamisch aktualisierte Szenariobeschreibung -->
+      <p><strong>Aufgabenbeschreibung:</strong> Stellen Sie eine Frage, die eine klare, faktisch präzise Antwort erfordert.</p>
+      <p><strong>Beispielanfrage:</strong> "Was ist Photosynthese?"</p>
+      <p><strong>Warum sinnvoll:</strong> Die präzise Vermittlung von Faktenwissen ist für viele autistische Personen besonders wichtig.</p>
+    </div>
+  </div>
+  
+  <!-- Quantitative Bewertung: Metriken -->
+  <!-- 1. Linguistischer Präzisionsindex -->
+  <div class="section">
+    <h2>Linguistischer Präzisionsindex</h2>
+    <div class="criterion">
+      <h3>Direktheit der Sprache <span class="tooltip">ⓘ<span class="tooltiptext">Wie direkt und unmissverständlich ist die Ausdrucksweise?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="directness-slider">
+        <span class="value-display" id="directness-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (indirekt)</span>
+        <span>5 (sehr direkt)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Vermeidung von Metaphern/Idiomen <span class="tooltip">ⓘ<span class="tooltiptext">Wie konsequent wird auf bildhafte oder mehrdeutige Ausdrücke verzichtet?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="metaphor-slider">
+        <span class="value-display" id="metaphor-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (viele Metaphern)</span>
+        <span>5 (keine Metaphern)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Klarheit der Satzstrukturen <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut werden einfache und klare Sätze formuliert?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="sentence-clarity-slider">
+        <span class="value-display" id="sentence-clarity-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (kompliziert)</span>
+        <span>5 (sehr klar)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Eindeutigkeit der Begriffe <span class="tooltip">ⓘ<span class="tooltiptext">Wie eindeutig und konsistent werden Fachbegriffe verwendet?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="term-consistency-slider">
+        <span class="value-display" id="term-consistency-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (uneindeutig)</span>
+        <span>5 (sehr eindeutig)</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 2. Informationsstruktur-Score -->
+  <div class="section">
+    <h2>Informationsstruktur-Score</h2>
+    <div class="criterion">
+      <h3>Faktendichte pro Satz <span class="tooltip">ⓘ<span class="tooltiptext">Wie ausgewogen ist die Informationsdichte in einzelnen Sätzen?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="fact-density-slider">
+        <span class="value-display" id="fact-density-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (überfrachtet)</span>
+        <span>5 (optimal)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Logischer Aufbau der Erklärung <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut folgt die Erklärung einer nachvollziehbaren Logik?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="logical-structure-slider">
+        <span class="value-display" id="logical-structure-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (chaotisch)</span>
+        <span>5 (sehr strukturiert)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Hierarchische Organisation <span class="tooltip">ⓘ<span class="tooltiptext">Wie klar werden komplexe Informationen in hierarchischen Ebenen dargestellt?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="hierarchy-slider">
+        <span class="value-display" id="hierarchy-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (unstrukturiert)</span>
+        <span>5 (sehr klar)</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 3. Verarbeitungsanpassungsfähigkeits-Rating -->
+  <div class="section">
+    <h2>Verarbeitungsanpassungsfähigkeits-Rating</h2>
+    <div class="criterion">
+      <h3>Angebot verschiedener Darstellungsformen <span class="tooltip">ⓘ<span class="tooltiptext">Wie vielfältig werden alternative Darstellungsmethoden (Text, Listen, Tabellen etc.) angeboten?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="presentation-slider">
+        <span class="value-display" id="presentation-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (einseitig)</span>
+        <span>5 (sehr vielfältig)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Angemessenheit der visuellen Strukturierung <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut unterstützt die visuelle Formatierung das Verständnis?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="visual-structure-slider">
+        <span class="value-display" id="visual-structure-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (wenig hilfreich)</span>
+        <span>5 (sehr hilfreich)</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 4. Sensorische Belastungsbewertung -->
+  <div class="section">
+    <h2>Sensorische Belastungsbewertung</h2>
+    <div class="criterion">
+      <h3>Angemessenheit der Textdichte <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut wird die Menge an Textinformationen dosiert?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="text-density-slider">
+        <span class="value-display" id="text-density-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (zu dicht)</span>
+        <span>5 (optimal)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Konsistenz der Formatierung <span class="tooltip">ⓘ<span class="tooltiptext">Wie einheitlich ist das Format (Schrift, Absätze, etc.)?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="format-consistency-slider">
+        <span class="value-display" id="format-consistency-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (inkonsistent)</span>
+        <span>5 (sehr konsistent)</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 5. Qualität der Anweisungszerlegung -->
+  <div class="section">
+    <h2>Qualität der Anweisungszerlegung</h2>
+    <div class="criterion">
+      <h3>Granularität der Schritte <span class="tooltip">ⓘ<span class="tooltiptext">Wie fein sind die einzelnen Handlungsschritte unterteilt?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="granularity-slider">
+        <span class="value-display" id="granularity-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (zu grob)</span>
+        <span>5 (sehr fein)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Vollständigkeit der Anweisungssequenz <span class="tooltip">ⓘ<span class="tooltiptext">Deckt die Anleitung alle notwendigen Schritte ab?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="completeness-slider">
+        <span class="value-display" id="completeness-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (unzureichend)</span>
+        <span>5 (vollständig)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Klarheit der einzelnen Schritte <span class="tooltip">ⓘ<span class="tooltiptext">Wie verständlich sind die einzelnen Anweisungsschritte formuliert?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="step-clarity-slider">
+        <span class="value-display" id="step-clarity-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (unklar)</span>
+        <span>5 (sehr klar)</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 6. Unterstützung kognitiver Flexibilität -->
+  <div class="section">
+    <h2>Unterstützung kognitiver Flexibilität</h2>
+    <div class="criterion">
+      <h3>Angebot alternativer Erklärungen <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut werden alternative Lösungsansätze angeboten?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="alternative-slider">
+        <span class="value-display" id="alternative-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (keine Alternativen)</span>
+        <span>5 (vielseitig)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Verknüpfung mit systematischen Beispielen <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut werden systematische Beispiele zur Verdeutlichung herangezogen?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="example-slider">
+        <span class="value-display" id="example-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (kaum Beispiele)</span>
+        <span>5 (sehr gut)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Klarheit des Feedback-Mechanismus <span class="tooltip">ⓘ<span class="tooltiptext">Wie klar ist das Feedback zur weiteren Vorgehensweise formuliert?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="feedback-slider">
+        <span class="value-display" id="feedback-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (unklar)</span>
+        <span>5 (sehr klar)</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 8. Messung der kognitiven Belastung -->
+  <div class="section">
+    <h2>Messung der kognitiven Belastung</h2>
+    <div class="criterion">
+      <h3>Einschätzung des mentalen Aufwands <span class="tooltip">ⓘ<span class="tooltiptext">Wie hoch wird der erforderliche mentale Aufwand eingeschätzt?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="mental-effort-slider">
+        <span class="value-display" id="mental-effort-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (sehr hoch)</span>
+        <span>5 (sehr niedrig)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Geschätzte Verarbeitungszeit <span class="tooltip">ⓘ<span class="tooltiptext">Wie schnell werden die Informationen verarbeitet?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="processing-time-slider">
+        <span class="value-display" id="processing-time-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (sehr lang)</span>
+        <span>5 (sehr schnell)</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 9. Personalisierungseffektivität -->
+  <div class="section">
+    <h2>Personalisierungseffektivität</h2>
+    <div class="criterion">
+      <h3>Angemessenheit der Terminologie <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut passt die verwendete Sprache zu den Bedürfnissen der Nutzer?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="terminology-slider">
+        <span class="value-display" id="terminology-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (ungeeignet)</span>
+        <span>5 (sehr passend)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Anpassungsfähigkeit an individuelle Bedürfnisse <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut wird auf individuelle Anforderungen eingegangen?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="adaptability-slider">
+        <span class="value-display" id="adaptability-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (gering)</span>
+        <span>5 (sehr hoch)</span>
+      </div>
+    </div>
+    <div class="criterion">
+      <h3>Konsistenz des Kommunikationsstils <span class="tooltip">ⓘ<span class="tooltiptext">Wie einheitlich ist der Kommunikationsstil über die Antwort hinweg?</span></span></h3>
+      <div class="slider-container">
+        <input type="range" min="1" max="5" value="3" class="slider" id="communication-style-slider">
+        <span class="value-display" id="communication-style-value">3</span>
+      </div>
+      <div class="slider-labels">
+        <span>1 (uneinheitlich)</span>
+        <span>5 (sehr konsistent)</span>
+      </div>
+    </div>
+  </div>
+  <div class="section">
+    <h2>Radar Chart Übersicht</h2>
+    <canvas id="radar-chart"></canvas>
+  </div>
+  <!-- Qualitative Erhebung -->
+  <div class="section">
+    <h2>Qualitative Rückmeldungen</h2>
+    <div class="criterion">
+      <label for="improvement-feedback">Gab es weitere Anmerkungen und Beobachtungen?</label>
+      <textarea id="improvement-feedback" placeholder="Ihre Anmerkungen..."></textarea>
+    </div>
+  </div>
+  
+  <!-- Nachbesprechung -->
+  <div class="section">
+    <h2>Nachbesprechung</h2>
+    <div class="criterion">
+      <label for="strengths">Welche Stärken weist die aktuelle Prompt-Architektur auf?</label>
+      <textarea id="strengths" placeholder="Ihre Einschätzung..."></textarea>
+    </div>
+    <div class="criterion">
+      <label for="weaknesses">Welche systemischen Schwächen wurden identifiziert?</label>
+      <textarea id="weaknesses" placeholder="Ihre Einschätzung..."></textarea>
+    </div>
+    <div class="criterion">
+      <label for="priorities">Welche Prioritäten sollten bei der Weiterentwicklung gesetzt werden?</label>
+      <textarea id="priorities" placeholder="Ihre Empfehlungen..."></textarea>
+    </div>
+    <div class="criterion">
+      <label for="unexpected">Welche unerwarteten Erkenntnisse haben sich ergeben?</label>
+      <textarea id="unexpected" placeholder="Ihre Beobachtungen..."></textarea>
+    </div>
+  </div>
+  
+  <!-- Buttons & Evaluationsverlauf -->
+  <div class="button-group">
+    <button id="save-btn">Evaluation speichern</button>
+    <button id="export-json-btn">Als JSON exportieren</button>
+    <button id="export-pdf-btn">Als PDF exportieren</button>
+    <button id="view-history-btn">Evaluationsverlauf anzeigen</button>
+  </div>
+  
+  <div class="history-section" id="history-section">
+    <h2>Evaluationsverlauf</h2>
+    <p>Klicken Sie auf einen Eintrag, um die Daten zu laden:</p>
+    <div id="history-items">
+      <!-- Dynamisch hinzugefügte Einträge -->
+    </div>
+  </div>
+  
+  <!-- JavaScript -->
+ <!-- JavaScript -->
+<script>
+    // Radar Chart-Objekt
+    let radarChart;
+  
+    // Initialisiere das Radar Chart
+    function initCharts() {
+      const ctx = document.getElementById('radar-chart').getContext('2d');
+      const labels = [
+        "Direktheit", "Metaphern", "Satzklarheit", "Begriffs-Konsistenz",
+        "Faktendichte", "Logik", "Hierarchie",
+        "Darstellungsvielfalt", "Visuelle Struktur",
+        "Textdichte","Konsistenz", "Granularität",
+        "Vollständigkeit", "Schritt-Klarheit", "Alternative Erklärungen",
+        "Systematische Beispiele", "Feedback", "Erfolgsrate",
+        "Verarbeitungszeit", "Terminologie",
+        "Anpassungsfähigkeit", "Kommunikationsstil"
+      ];
+      // Initiale Werte: alle Slider starten bei 3
+      const initialData = Array(labels.length).fill(3);
+      radarChart = new Chart(ctx, {
+        type: "radar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Bewertung",
+            data: initialData,
+            backgroundColor: "rgba(52, 152, 219, 0.2)",
+            borderColor: "rgba(52, 152, 219, 1)",
+            pointBackgroundColor: "rgba(52, 152, 219, 1)"
+          }]
+        },
+        options: {
+          scales: {
+            r: {
+              min: 0,
+              max: 5,
+              ticks: { stepSize: 1 }
+            }
+          }
+        }
+      });
+    }
+  
+    // Aktualisiere alle Werte im Radar Chart
+    function updateCharts() {
+      const values = [
+        parseInt(document.getElementById('directness-slider').value),
+        parseInt(document.getElementById('metaphor-slider').value),
+        parseInt(document.getElementById('sentence-clarity-slider').value),
+        parseInt(document.getElementById('term-consistency-slider').value),
+        parseInt(document.getElementById('fact-density-slider').value),
+        parseInt(document.getElementById('logical-structure-slider').value),
+        parseInt(document.getElementById('hierarchy-slider').value),
+        parseInt(document.getElementById('presentation-slider').value),
+        parseInt(document.getElementById('visual-structure-slider').value),
+        parseInt(document.getElementById('text-density-slider').value),
+        parseInt(document.getElementById('format-consistency-slider').value),
+        parseInt(document.getElementById('granularity-slider').value),
+        parseInt(document.getElementById('completeness-slider').value),
+        parseInt(document.getElementById('step-clarity-slider').value),
+        parseInt(document.getElementById('alternative-slider').value),
+        parseInt(document.getElementById('example-slider').value),
+        parseInt(document.getElementById('feedback-slider').value),
+        parseInt(document.getElementById('mental-effort-slider').value),
+        parseInt(document.getElementById('processing-time-slider').value),
+        parseInt(document.getElementById('terminology-slider').value),
+        parseInt(document.getElementById('adaptability-slider').value),
+        parseInt(document.getElementById('communication-style-slider').value)
+      ];
+      radarChart.data.datasets[0].data = values;
+      radarChart.update();
+    }
+  
+    // Slider aktualisieren und Radar Chart dynamisch updaten
+    document.querySelectorAll('.slider').forEach(slider => {
+      const valueDisplay = document.getElementById(slider.id.replace('slider', 'value'));
+      slider.addEventListener('input', () => {
+        if (valueDisplay) { valueDisplay.textContent = slider.value; }
+        updateCharts();
+      });
+    });
+      
+    // Szenario-Daten (entsprechend Protokoll)
+    const scenarios = {
+      scenario1: {
+        description: "Stellen Sie die Frage 'Was ist Photosynthese?' und liefern Sie eine klare, faktenbasierte Antwort.",
+        example: "Was ist Photosynthese?",
+        rationale: "Faktenbasierte, unmissverständliche Antworten sind für autistische Nutzer von besonderer Relevanz."
+      },
+      scenario2: {
+        description: "Stellen Sie eine Frage zur Funktionsweise eines alltäglichen Gegenstands.",
+        example: "Wie funktioniert ein Toaster?",
+        rationale: "Bezieht sich auf ein alltägliches Objekt mit klarer Funktionsweise, erlaubt eine sequentielle, logische Erklärung, und viele autistische Menschen schätzen technische Erklärungen."
+      },
+      scenario3: {
+        description: "Erklären Sie, was man beachten sollte, wenn man zum Arzt muss.",
+        example: "Ich muss morgen zum Arzt. Was sollte ich beachten?",
+        rationale: "Klare, schrittweise Anweisungen sind notwendig, um Handlungen ohne Rückfragen umzusetzen."
+      },
+      scenario4: {
+        description: "Geben Sie Hilfestellungen, wenn der Computer nicht richtig funktioniert.",
+        example: "Mein Computer funktioniert nicht richtig. Was kann ich tun?",
+        rationale: "Mehrdeutige Problembeschreibungen erfordern gezielte Nachfragen und strukturierte Problemlösungsansätze."
+      },
+      scenario5: {
+        description: "Unterstützen Sie emotional überforderte Nutzer durch strukturierte Hilfestellung.",
+        example: "Ich bin überfordert mit meinen Aufgaben. Wie soll ich anfangen?",
+        rationale: "Eine klar strukturierte Antwort kann Unsicherheiten abbauen und Handlungsanweisungen geben."
+      },
+      scenario6: {
+        description: "Initiieren Sie einen mehrstufigen Dialog zu einem Thema, das für neurodivergente Personen relevant ist.",
+        example: "1. Hallo, ich heiße Theo. 2. Was sind sensorische Überempfindlichkeiten? 3. Wie kann ich damit umgehen?",
+        rationale: "Testet, wie gut der Prompt Kontextinformationen aus vorherigen Anfragen berücksichtigt und auf spezifische Nachfragen eingeht."
+      }
+    };
+      
+    const scenarioSelect = document.getElementById('scenario-select');
+    const scenarioDetails = document.getElementById('scenario-details');
+      
+    scenarioSelect.addEventListener('change', () => {
+      const scenario = scenarios[scenarioSelect.value];
+      scenarioDetails.innerHTML = `
+        <p><strong>Aufgabenbeschreibung:</strong> ${scenario.description}</p>
+        <p><strong>Beispielanfrage:</strong> "${scenario.example}"</p>
+        <p><strong>Warum sinnvoll:</strong> ${scenario.rationale}</p>
+      `;
+    });
+      
+    // Hilfsfunktion zum Sammeln aller Evaluationsdaten
+    function collectEvaluationData() {
+      const sliderValues = {};
+      document.querySelectorAll('.slider').forEach(slider => {
+        sliderValues[slider.id] = parseInt(slider.value);
+      });
+        
+      // Demografische Angaben
+      const age = document.getElementById('age').value;
+      let gender = "";
+      document.getElementsByName('gender').forEach(elem => {
+        if (elem.checked) { gender = elem.value; }
+      });
+      const education = document.getElementById('education').value;
+        
+      // Fachspezifische Angaben
+      const hciExpertise = document.getElementById('hci_expertise').value;
+      const autismExperience = document.getElementById('autism_experience').value;
+      const assistantExperience = document.getElementById('assistant_experience').value;
+        
+      // Qualitative Rückmeldungen
+     
+      const improvementFeedback = document.getElementById('improvement-feedback').value;
+        
+      // Nachbesprechung
+      const strengths = document.getElementById('strengths').value;
+      const weaknesses = document.getElementById('weaknesses').value;
+      const priorities = document.getElementById('priorities').value;
+      const unexpected = document.getElementById('unexpected').value;
+        
+      return {
+        timestamp: new Date().toISOString(),
+        scenario: {
+          id: scenarioSelect.value,
+          details: scenarios[scenarioSelect.value]
+        },
+        ratings: sliderValues,
+        qualitative: {
+          helpfulFeedback,
+          problematicFeedback,
+          improvementFeedback
+        },
+        nachbesprechung: {
+          strengths,
+          weaknesses,
+          priorities,
+          unexpected
+        },
+        demographics: {
+          age,
+          gender,
+          education
+        },
+        fachspezifisch: {
+          hciExpertise,
+          autismExperience,
+          assistantExperience
+        }
+      };
+    }
+      
+    // Speichern der Evaluation in localStorage
+    function saveEvaluation(data) {
+      let evaluations = JSON.parse(localStorage.getItem('cognitive_walkthrough_evaluations') || '[]');
+      evaluations.push(data);
+      localStorage.setItem('cognitive_walkthrough_evaluations', JSON.stringify(evaluations));
+    }
+      
+    // Button-Events
+    document.getElementById('save-btn').addEventListener('click', () => {
+      const evaluationData = collectEvaluationData();
+      saveEvaluation(evaluationData);
+      alert('Evaluation erfolgreich gespeichert!');
+    });
+      
+    document.getElementById('export-json-btn').addEventListener('click', () => {
+      const evaluationData = collectEvaluationData();
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(evaluationData, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href", dataStr);
+      downloadAnchorNode.setAttribute("download", "cognitive_walkthrough_" + new Date().toISOString().substring(0, 10) + ".json");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    });
+      
+    // PDF-Export
+    document.getElementById('export-pdf-btn').addEventListener('click', () => {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const margin = 15;
+      let yPosition = margin;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const contentWidth = pageWidth - margin * 2;
+      const evaluationData = collectEvaluationData();
+        
+      // Hilfsfunktionen zum Hinzufügen von Überschriften und Text
+      function addHeading(text, level = 1) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(level === 1 ? 16 : (level === 2 ? 14 : 12));
+        doc.text(text, margin, yPosition);
+        yPosition += level === 1 ? 10 : 8;
+      }
+        
+      function addText(text) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const lines = doc.splitTextToSize(text, contentWidth);
+        doc.text(lines, margin, yPosition);
+        yPosition += lines.length * 5;
+      }
+        
+      // Titel und Metadaten
+      addHeading("Cognitive Walkthrough Evaluation", 1);
+      addText("Datum: " + new Date().toLocaleDateString());
+        
+      // Szenario-Information
+      addHeading("Testszenario", 2);
+      addText("Szenario: " + scenarioSelect.options[scenarioSelect.selectedIndex].text);
+      addText("Beschreibung: " + scenarios[scenarioSelect.value].description);
+      addText("Beispielanfrage: " + scenarios[scenarioSelect.value].example);
+        
+      // Demografische Angaben
+      addHeading("Demografische Angaben", 2);
+      addText("Alter: " + (evaluationData.demographics.age || "Nicht angegeben"));
+      addText("Geschlecht: " + (evaluationData.demographics.gender || "Nicht angegeben"));
+      addText("Bildungsniveau: " + (evaluationData.demographics.education || "Nicht angegeben"));
+        
+      // Fachspezifische Angaben
+      if (evaluationData.fachspezifisch.hciExpertise || evaluationData.fachspezifisch.autismExperience || evaluationData.fachspezifisch.assistantExperience) {
+        addHeading("Fachspezifische Angaben", 3);
+        if (evaluationData.fachspezifisch.hciExpertise) { addText("HCI Expertise: " + evaluationData.fachspezifisch.hciExpertise); }
+        if (evaluationData.fachspezifisch.autismExperience) { addText("Erfahrung mit autistischen Nutzern: " + evaluationData.fachspezifisch.autismExperience); }
+        if (evaluationData.fachspezifisch.assistantExperience) { addText("Erfahrung mit Sprachassistenten: " + evaluationData.fachspezifisch.assistantExperience); }
+      }
+        
+      // Bewertungskriterien (quantitativ)
+      addHeading("Quantitative Bewertungen", 2);
+      for (const [key, value] of Object.entries(evaluationData.ratings)) {
+        addText(key + ": " + value + " von 5");
+      }
+        
+      // Qualitative Rückmeldungen
+      addHeading("Qualitative Rückmeldungen", 2);
+      addText("Hilfreiche Aspekte: " + evaluationData.qualitative.helpfulFeedback);
+      addText("Problematische Aspekte: " + evaluationData.qualitative.problematicFeedback);
+      addText("Verbesserungsvorschläge: " + evaluationData.qualitative.improvementFeedback);
+        
+      // Nachbesprechung
+      addHeading("Nachbesprechung", 2);
+      addText("Stärken der Prompt-Architektur: " + evaluationData.nachbesprechung.strengths);
+      addText("Identifizierte Schwächen: " + evaluationData.nachbesprechung.weaknesses);
+      addText("Prioritäten für die Weiterentwicklung: " + evaluationData.nachbesprechung.priorities);
+      addText("Unerwartete Erkenntnisse: " + evaluationData.nachbesprechung.unexpected);
+        
+      // Füge das Radar Chart ein
+      addChart(document.getElementById("radar-chart"), "Kriterien-Radar");
+      doc.save("cognitive_walkthrough_" + new Date().toISOString().substring(0, 10) + ".pdf");
+    });
+      
+    // Funktion zum Einfügen des Radar Charts in die PDF
+    function addChart(chartCanvas, title) {
+      const { jsPDF } = window.jspdf;
+      // Füge eine neue Seite hinzu
+      const doc = new jsPDF('p', 'mm', 'a4');
+      let yPosition = 15;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      const imgWidth = pageWidth - margin * 2;
+      
+      // Temporäres Canvas für höhere Auflösung
+      const tempCanvas = document.createElement("canvas");
+      const ctx = tempCanvas.getContext("2d");
+      tempCanvas.width = chartCanvas.width * 2;
+      tempCanvas.height = chartCanvas.height * 2;
+      ctx.scale(2, 2);
+      ctx.drawImage(chartCanvas, 0, 0);
+      const imgData = tempCanvas.toDataURL("image/png", 1.0);
+      const imgHeight = (chartCanvas.height * imgWidth) / chartCanvas.width;
+      
+      // Füge Titel hinzu
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.text(title, margin, yPosition);
+      yPosition += 10;
+      doc.addImage(imgData, "PNG", margin, yPosition, imgWidth, imgHeight);
+      // Seite speichern oder zurückgeben, je nach Implementierung
+      doc.save("chart_export.pdf");
+    }
+      
+    // Verlauf anzeigen / laden
+    document.getElementById('view-history-btn').addEventListener('click', () => {
+      const historySection = document.getElementById('history-section');
+      historySection.style.display = historySection.style.display === 'none' ? 'block' : 'none';
+      if(historySection.style.display === 'block') { loadHistoryItems(); }
+    });
+      
+    function loadHistoryItems() {
+      const historyContainer = document.getElementById('history-items');
+      historyContainer.innerHTML = "";
+      let evaluations = JSON.parse(localStorage.getItem('cognitive_walkthrough_evaluations') || '[]');
+      if (evaluations.length === 0) {
+        historyContainer.innerHTML = "<p>Keine gespeicherten Evaluationen vorhanden.</p>";
+        return;
+      }
+      evaluations.forEach((evaluation, index) => {
+        const date = new Date(evaluation.timestamp);
+        const formattedDate = date.toLocaleDateString() + " " + date.toLocaleTimeString();
+        const historyItem = document.createElement('div');
+        historyItem.className = "history-item";
+        historyItem.innerHTML = `<strong>Datum:</strong> ${formattedDate}<br><strong>Szenario:</strong> ${evaluation.scenario.details.example}`;
+        historyItem.addEventListener('click', () => loadEvaluation(evaluation));
+        historyContainer.appendChild(historyItem);
+      });
+    }
+      
+    function loadEvaluation(evaluation) {
+      // Szenario setzen
+      document.getElementById('scenario-select').value = evaluation.scenario.id;
+      document.getElementById('scenario-select').dispatchEvent(new Event('change'));
+      // Demografische Angaben
+      document.getElementById('age').value = evaluation.demographics.age;
+      document.getElementsByName('gender').forEach(elem => {
+        elem.checked = (elem.value === evaluation.demographics.gender);
+      });
+      document.getElementById('education').value = evaluation.demographics.education;
+      // Fachspezifische Angaben
+      document.getElementById('hci_expertise').value = evaluation.fachspezifisch.hciExpertise;
+      document.getElementById('autism_experience').value = evaluation.fachspezifisch.autismExperience;
+      document.getElementById('assistant_experience').value = evaluation.fachspezifisch.assistantExperience;
+      // Slider-Werte setzen
+      for (const key in evaluation.ratings) {
+        const slider = document.getElementById(key);
+        if (slider) {
+          slider.value = evaluation.ratings[key];
+          const valueDisplay = document.getElementById(key.replace('slider', 'value'));
+          if (valueDisplay) { valueDisplay.textContent = evaluation.ratings[key]; }
+        }
+      }
+      // Qualitative Felder
+      document.getElementById('improvement-feedback').value = evaluation.qualitative.improvementFeedback;
+      // Nachbesprechung
+      document.getElementById('strengths').value = evaluation.nachbesprechung.strengths;
+      document.getElementById('weaknesses').value = evaluation.nachbesprechung.weaknesses;
+      document.getElementById('priorities').value = evaluation.nachbesprechung.priorities;
+      document.getElementById('unexpected').value = evaluation.nachbesprechung.unexpected;
+      updateCharts();
+      alert("Evaluation geladen!");
+    }
+  
+    // WICHTIG: Initialisiere den Radar Chart, sobald die Seite vollständig geladen ist
+    window.addEventListener('load', initCharts);
+  </script>
+  

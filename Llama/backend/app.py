@@ -16,7 +16,7 @@ app.config['CACHE_TYPE'] = 'simple'
 cache = Cache(app)
 
 # Modellpfad
-model_path = "D:/Programme/gpt4all/Llama-3.2-3B-Instruct-Q4_0.gguf"
+model_path = "D:/Programme/gpt4all/Meta-Llama-3-8B-Instruct.Q4_0.gguf"
 model = None
 
 # Gesprächskontexte als strukturierte Liste speichern
