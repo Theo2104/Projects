@@ -217,7 +217,7 @@
   </div>
   
   <!-- Quantitative Bewertung: Metriken -->
-  <!-- 1. Linguistischer Präzisionsindex -->
+
   <div class="section">
     <h2>Linguistischer Präzisionsindex</h2>
     <div class="criterion">
@@ -266,7 +266,7 @@
     </div>
   </div>
   
-  <!-- 2. Informationsstruktur-Score -->
+  
   <div class="section">
     <h2>Informationsstruktur-Score</h2>
     <div class="criterion">
@@ -302,22 +302,6 @@
         <span>5 (sehr klar)</span>
       </div>
     </div>
-  </div>
-  
-  <!-- 3. Verarbeitungsanpassungsfähigkeits-Rating -->
-  <div class="section">
-    <h2>Verarbeitungsanpassungsfähigkeits-Rating</h2>
-    <div class="criterion">
-      <h3>Angebot verschiedener Darstellungsformen <span class="tooltip">ⓘ<span class="tooltiptext">Wie vielfältig werden alternative Darstellungsmethoden (Text, Listen, Tabellen etc.) angeboten?</span></span></h3>
-      <div class="slider-container">
-        <input type="range" min="1" max="5" value="3" class="slider" id="presentation-slider">
-        <span class="value-display" id="presentation-value">3</span>
-      </div>
-      <div class="slider-labels">
-        <span>1 (einseitig)</span>
-        <span>5 (sehr vielfältig)</span>
-      </div>
-    </div>
     <div class="criterion">
       <h3>Angemessenheit der visuellen Strukturierung <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut unterstützt die visuelle Formatierung das Verständnis?</span></span></h3>
       <div class="slider-container">
@@ -331,7 +315,7 @@
     </div>
   </div>
   
-  <!-- 4. Sensorische Belastungsbewertung -->
+  
   <div class="section">
     <h2>Sensorische Belastungsbewertung</h2>
     <div class="criterion">
@@ -358,7 +342,7 @@
     </div>
   </div>
   
-  <!-- 5. Qualität der Anweisungszerlegung -->
+  
   <div class="section">
     <h2>Qualität der Anweisungszerlegung</h2>
     <div class="criterion">
@@ -394,22 +378,6 @@
         <span>5 (sehr klar)</span>
       </div>
     </div>
-  </div>
-  
-  <!-- 6. Unterstützung kognitiver Flexibilität -->
-  <div class="section">
-    <h2>Unterstützung kognitiver Flexibilität</h2>
-    <div class="criterion">
-      <h3>Angebot alternativer Erklärungen <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut werden alternative Lösungsansätze angeboten?</span></span></h3>
-      <div class="slider-container">
-        <input type="range" min="1" max="5" value="3" class="slider" id="alternative-slider">
-        <span class="value-display" id="alternative-value">3</span>
-      </div>
-      <div class="slider-labels">
-        <span>1 (keine Alternativen)</span>
-        <span>5 (vielseitig)</span>
-      </div>
-    </div>
     <div class="criterion">
       <h3>Verknüpfung mit systematischen Beispielen <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut werden systematische Beispiele zur Verdeutlichung herangezogen?</span></span></h3>
       <div class="slider-container">
@@ -421,20 +389,8 @@
         <span>5 (sehr gut)</span>
       </div>
     </div>
-    <div class="criterion">
-      <h3>Klarheit des Feedback-Mechanismus <span class="tooltip">ⓘ<span class="tooltiptext">Wie klar ist das Feedback zur weiteren Vorgehensweise formuliert?</span></span></h3>
-      <div class="slider-container">
-        <input type="range" min="1" max="5" value="3" class="slider" id="feedback-slider">
-        <span class="value-display" id="feedback-value">3</span>
-      </div>
-      <div class="slider-labels">
-        <span>1 (unklar)</span>
-        <span>5 (sehr klar)</span>
-      </div>
-    </div>
   </div>
   
-  <!-- 8. Messung der kognitiven Belastung -->
   <div class="section">
     <h2>Messung der kognitiven Belastung</h2>
     <div class="criterion">
@@ -460,8 +416,7 @@
       </div>
     </div>
   </div>
-  
-  <!-- 9. Personalisierungseffektivität -->
+
   <div class="section">
     <h2>Personalisierungseffektivität</h2>
     <div class="criterion">
@@ -476,14 +431,14 @@
       </div>
     </div>
     <div class="criterion">
-      <h3>Anpassungsfähigkeit an individuelle Bedürfnisse <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut wird auf individuelle Anforderungen eingegangen?</span></span></h3>
+      <h3>Anpassungsfähigkeit an individuelle Bedürfnisse <span class="tooltip">ⓘ<span class="tooltiptext">Wie gut erkennt und berücksichtigt das Modell anhand der Eingabe unterschiedliche Verarbeitungspräferenzen? </span></span></h3>
       <div class="slider-container">
         <input type="range" min="1" max="5" value="3" class="slider" id="adaptability-slider">
         <span class="value-display" id="adaptability-value">3</span>
       </div>
       <div class="slider-labels">
-        <span>1 (gering)</span>
-        <span>5 (sehr hoch)</span>
+        <span>1 (ungeeignet)</span>
+        <span>5 (sehr passend)</span>
       </div>
     </div>
     <div class="criterion">
@@ -560,10 +515,10 @@
       const labels = [
         "Direktheit", "Metaphern", "Satzklarheit", "Begriffs-Konsistenz",
         "Faktendichte", "Logik", "Hierarchie",
-        "Darstellungsvielfalt", "Visuelle Struktur",
+        "Visuelle Struktur",
         "Textdichte","Konsistenz", "Granularität",
-        "Vollständigkeit", "Schritt-Klarheit", "Alternative Erklärungen",
-        "Systematische Beispiele", "Feedback", "Erfolgsrate",
+        "Vollständigkeit", "Schritt-Klarheit",
+        "Systematische Beispiele", "Erfolgsrate",
         "Verarbeitungszeit", "Terminologie",
         "Anpassungsfähigkeit", "Kommunikationsstil"
       ];
@@ -603,16 +558,13 @@
         parseInt(document.getElementById('fact-density-slider').value),
         parseInt(document.getElementById('logical-structure-slider').value),
         parseInt(document.getElementById('hierarchy-slider').value),
-        parseInt(document.getElementById('presentation-slider').value),
         parseInt(document.getElementById('visual-structure-slider').value),
         parseInt(document.getElementById('text-density-slider').value),
         parseInt(document.getElementById('format-consistency-slider').value),
         parseInt(document.getElementById('granularity-slider').value),
         parseInt(document.getElementById('completeness-slider').value),
         parseInt(document.getElementById('step-clarity-slider').value),
-        parseInt(document.getElementById('alternative-slider').value),
         parseInt(document.getElementById('example-slider').value),
-        parseInt(document.getElementById('feedback-slider').value),
         parseInt(document.getElementById('mental-effort-slider').value),
         parseInt(document.getElementById('processing-time-slider').value),
         parseInt(document.getElementById('terminology-slider').value),

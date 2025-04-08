@@ -324,11 +324,7 @@ def chat():
     "   - Consider the desired level of detail based on the request.\n"
     "   - Use terms and explanation levels that correspond to the user's level of understanding.\n"
     "   - Offer both simplified and more detailed explanations if necessary.\n\n"
-    "10. Implement a feedback mechanism:\n"
-    "    - For queries, identify the specific unclear part.\n"
-    "    - Formulate alternative explanations for difficult concepts.\n"
-    "    - If necessary, ask what kind of explanation would be most helpful.\n\n"
-    "11. Link with relevant special interests, if possible:\n"
+    "10. Link with relevant special interests, if possible:\n"
     "    - Use examples from areas such as natural sciences, logic, or systematic processes.\n"
     "    - Establish connections to related concepts that could be conducive to understanding.\n\n"
     "Answer configuration:\n"
@@ -383,10 +379,15 @@ def generate_explanation(answer, user_input):
     en_input = translate_to_english(user_input)
     
     explanation_prompt = (
-        "Explain briefly and simply why this answer is helpful for an autistic user:\n"
+        "Your task is to generate a meta-explanation that helps an autistic user better understand your answer. \n\n"
+        "Please follow these principles:\n"
+        "1. Explain the logic behind your answer.\n"
+        "2. Clarify the connections between the question and your answer.\n"
+        "3. Identify and resolve potential ambiguities.\n"
+        "4. Avoid repeating the original answer.\n\n"
         f"Question: {en_input}\n"
         f"Answer: {en_answer}\n\n"
-        "Limit yourself to a maximum of 2 simple sentences. Your explanation:"
+        "Your explanation:"
     )
     
     try:
