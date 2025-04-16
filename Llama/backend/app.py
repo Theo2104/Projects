@@ -78,7 +78,7 @@ def update_context(session_id: str, user_input: str, answer: str):
         context = conversation_contexts.get(session_id, [])
         context.append({"role": "user", "content": user_input})
         context.append({"role": "assistant", "content": answer})
-        # Begrenze den Kontext auf die letzten 10 Nachrichten (5 Austausche)
+        # Begrenze den Kontext auf die letzten 10 Nachrichten
         if len(context) > 10:
             context = context[-10:]
         conversation_contexts[session_id] = context
@@ -98,7 +98,7 @@ def build_context_string(session_id: str, in_english=False) -> str:
     
     for msg in context:
         content = msg["content"]
-        # Übersetze den Inhalt ins Englische, wenn gewünscht
+        # Übersetze den Inhalt ins Englische
         if in_english:
             content = translate_to_english(content)
             
@@ -403,7 +403,7 @@ def generate_explanation(answer, user_input):
         # Übersetze ins Deutsche
         german_explanation = translate_to_german(processed_en_explanation)
         
-        # Finale Bereinigung
+    
         return post_process_answer(german_explanation)
         
     except Exception as e:

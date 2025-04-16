@@ -171,11 +171,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    // Überschreibe onConfigurationChanged, um Rotationen zu handhaben, ohne die Activity neu zu erstellen.
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         Log.d("MainActivity", "Configuration changed: Orientation = ${newConfig.orientation}")
-        // Hier kannst du ggf. weitere Anpassungen vornehmen.
+
     }
     private fun saveDarkModeSetting(isEnabled: Boolean) {
         sharedPreferences.edit().putBoolean("dark_mode", isEnabled).apply()
@@ -476,7 +476,7 @@ fun PortraitUserInterface(
                 }
             }
         }
-        // Aktionstasten – statt fillMaxWidth(0.45f) verwenden wir weight(1f)
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
@@ -547,7 +547,7 @@ fun ResponsiveUserInterface(
         color = MaterialTheme.colorScheme.background
     ) {
         if (isLandscape) {
-            // Bei Landscape-Modus: nutze LandscapeUserInterface
+
             LandscapeUserInterface(
                 spokenText = spokenText,
                 assistantResponse = assistantResponse,
@@ -570,7 +570,7 @@ fun ResponsiveUserInterface(
                 onExplainChange = onExplainChange
             )
         } else {
-            // Bei Portrait-Modus: nutze PortraitUserInterface
+
             PortraitUserInterface(
                 spokenText = spokenText,
                 assistantResponse = assistantResponse,
@@ -772,7 +772,7 @@ fun LandscapeUserInterface(
 }
 
 
-// Verbesserte DisplayCard mit optionalem Scrolling
+
 @Composable
 fun DisplayCard(
     title: String,
@@ -828,7 +828,7 @@ fun DisplayCard(
     }
 }
 
-// Verbesserte ActionButton-Komponente
+
 @Composable
 fun ActionButton(
     onClick: () -> Unit,
@@ -1146,7 +1146,7 @@ fun LoadingSnail(
                     style = Stroke(width = 2f, cap = StrokeCap.Round)
                 )
 
-                // Fühlerenden (kleine Kreise)
+
                 drawCircle(
                     color = shellColor,
                     radius = 3f,
