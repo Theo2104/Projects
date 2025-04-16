@@ -413,4 +413,4 @@ if __name__ == "__main__":
     load_model()
     with app.app_context():
         warm_up_model()
-    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=False, use_reloader=False)
