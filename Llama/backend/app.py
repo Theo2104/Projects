@@ -6,7 +6,8 @@ from flask import Flask, request, jsonify
 from flask_talisman import Talisman
 from flask_caching import Cache
 from sentence_transformers import SentenceTransformer, util
-from deep_translator import GoogleTranslator
+#from deep_translator import GoogleTranslator
+from transformers import MarianMTModel, MarianTokenizer
 
 app = Flask(__name__)
 Talisman(app)
@@ -18,6 +19,12 @@ cache = Cache(app)
 # Modellpfad
 model_path = "D:/Programme/gpt4all/Meta-Llama-3-8B-Instruct.Q4_0.gguf"
 model = None
+
+# Offline-Übersetzungsmodelle laden
+de_en_tokenizer = MarianTokenizer.from_pretrained('Helsinki-NLP/opus-mt-de-en')
+de_en_model = MarianMTModel.from_pretrained('Helsinki-NLP/opus-mt-de-en')
+en_de_tokenizer = MarianTokenizer.from_pretrained('Helsinki-NLP/opus-mt-en-de')
+en_de_model = MarianMTModel.from_pretrained('Helsinki-NLP/opus-mt-en-de')
 
 # Gesprächskontexte als strukturierte Liste speichern
 conversation_contexts = {}
@@ -33,22 +40,27 @@ executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 # Embedding-Modell
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Übersetzer initialisieren
-def translate_to_english(text):
+# Übersetzerfunktionen ohne Internet
+def translate_to_english(text: str) -> str:
     with translator_lock:
         try:
-            return GoogleTranslator(source='de', target='en').translate(text)
+            inputs = de_en_tokenizer(text, return_tensors="pt", truncation=True)
+            translated = de_en_model.generate(**inputs)
+            return de_en_tokenizer.decode(translated[0], skip_special_tokens=True)
         except Exception as e:
             print(f"Übersetzungsfehler (DE->EN): {e}")
-            return text  # Fallback auf Originaltext
+            return text
 
-def translate_to_german(text):
+
+def translate_to_german(text: str) -> str:
     with translator_lock:
         try:
-            return GoogleTranslator(source='en', target='de').translate(text)
+            inputs = en_de_tokenizer(text, return_tensors="pt", truncation=True)
+            translated = en_de_model.generate(**inputs)
+            return en_de_tokenizer.decode(translated[0], skip_special_tokens=True)
         except Exception as e:
             print(f"Übersetzungsfehler (EN->DE): {e}")
-            return text  # Fallback auf Originaltext
+            return text
 
 def load_model():
     """Lädt das GPT-4All Modell in den Speicher."""
