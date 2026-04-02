@@ -8,56 +8,102 @@ from flask_caching import Cache
 from sentence_transformers import SentenceTransformer, util
 #from deep_translator import GoogleTranslator
 from transformers import MarianMTModel, MarianTokenizer
+import torch
 
 app = Flask(__name__)
 Talisman(app)
 
-# Flask-Caching konfigurieren
+# Flask-Caching konfigurieren (größerer Cache)
 app.config['CACHE_TYPE'] = 'simple'
+app.config['CACHE_DEFAULT_TIMEOUT'] = 3600  # 1 Stunde statt 5 Minuten
 cache = Cache(app)
 
 # Modellpfad
 model_path = "D:/Programme/gpt4all/Meta-Llama-3-8B-Instruct.Q4_0.gguf"
 model = None
 
-# Offline-Übersetzungsmodelle laden
+# GPU-Optimierung für Übersetzungsmodelle
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+# Optimierte Übersetzungsmodelle mit GPU-Unterstützung
 de_en_tokenizer = MarianTokenizer.from_pretrained('Helsinki-NLP/opus-mt-de-en')
-de_en_model = MarianMTModel.from_pretrained('Helsinki-NLP/opus-mt-de-en')
+de_en_model = MarianMTModel.from_pretrained('Helsinki-NLP/opus-mt-de-en').to(device)
+de_en_model.eval()  # Inferenzmodus für bessere Performance
+
 en_de_tokenizer = MarianTokenizer.from_pretrained('Helsinki-NLP/opus-mt-en-de')
-en_de_model = MarianMTModel.from_pretrained('Helsinki-NLP/opus-mt-en-de')
+en_de_model = MarianMTModel.from_pretrained('Helsinki-NLP/opus-mt-en-de').to(device)
+en_de_model.eval()
+
+# Cache für Übersetzungen
+translation_cache = {}
 
 # Gesprächskontexte als strukturierte Liste speichern
 conversation_contexts = {}
 
-# Thread-Sicherheit
+# Thread-Sicherheit mit optimierten Locks
 model_lock = threading.Lock()
 conversation_lock = threading.Lock()
 translator_lock = threading.Lock()
 
-# Executor für parallele Modellaufrufe
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+# Optimierter Executor mit mehr Threads für I/O-Operationen
+executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
 
-# Embedding-Modell
+# Kleineres, schnelleres Embedding-Modell
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+embedding_model.to(device)
 
-# Übersetzerfunktionen ohne Internet
+# Optimierte Übersetzerfunktionen mit Caching
 def translate_to_english(text: str) -> str:
+    # Cache-Key erstellen
+    cache_key = f"de_en:{hash(text)}"
+    
+    if cache_key in translation_cache:
+        return translation_cache[cache_key]
+    
     with translator_lock:
         try:
-            inputs = de_en_tokenizer(text, return_tensors="pt", truncation=True)
-            translated = de_en_model.generate(**inputs)
-            return de_en_tokenizer.decode(translated[0], skip_special_tokens=True)
+            with torch.no_grad():  # Reduziert Memory-Overhead
+                inputs = de_en_tokenizer(text, return_tensors="pt", truncation=True, max_length=128).to(device)
+                # Optimierte Generation
+                with torch.no_grad():
+                    translated = de_en_model.generate(
+                        **inputs,
+                        max_length=128,
+                        num_beams=2,  # Reduziert von default 5
+                        early_stopping=True,
+                        do_sample=False  # Deterministisch für bessere Cache-Hits
+                    )
+                result = de_en_tokenizer.decode(translated[0], skip_special_tokens=True)
+                translation_cache[cache_key] = result
+                return result
         except Exception as e:
             print(f"Übersetzungsfehler (DE->EN): {e}")
             return text
 
 
 def translate_to_german(text: str) -> str:
+    # Cache-Key erstellen
+    cache_key = f"en_de:{hash(text)}"
+    
+    if cache_key in translation_cache:
+        return translation_cache[cache_key]
+    
     with translator_lock:
         try:
-            inputs = en_de_tokenizer(text, return_tensors="pt", truncation=True)
-            translated = en_de_model.generate(**inputs)
-            return en_de_tokenizer.decode(translated[0], skip_special_tokens=True)
+            with torch.no_grad():
+                inputs = en_de_tokenizer(text, return_tensors="pt", truncation=True, max_length=128).to(device)
+                with torch.no_grad():
+                    translated = en_de_model.generate(
+                        **inputs,
+                        max_length=128,
+                        num_beams=2,
+                        early_stopping=True,
+                        do_sample=False
+                    )
+                result = en_de_tokenizer.decode(translated[0], skip_special_tokens=True)
+                translation_cache[cache_key] = result
+                return result
         except Exception as e:
             print(f"Übersetzungsfehler (EN->DE): {e}")
             return text
@@ -67,22 +113,34 @@ def load_model():
     global model
     if model is None:
         print("Lade das Modell...")
-        model = gpt4all.GPT4All(model_path)
+        # Optimierte Modell-Konfiguration
+        model = gpt4all.GPT4All(
+            model_path,
+            device="gpu" if torch.cuda.is_available() else "cpu",
+            n_threads=4  # Parallelisierung
+        )
         print("Modell erfolgreich geladen.")
 
 def warm_up_model():
-    """Pre-Warming des Modells."""
+    """Pre-Warming des Modells mit kurzem Test."""
     try:
         print("Warming up the model...")
-        _ = executor.submit(generate_response, "Warming up").result()
+        # Sehr kurzer Warmup-Prompt
+        _ = model.generate("Hi", temp=0.2, max_tokens=10)
         print("Model pre-warming successful.")
     except Exception as e:
         print("Model pre-warming failed:", e)
 
-def generate_response(prompt, temperature=0.2):
-    """Generiert eine Antwort thread-sicher mit kontrollierten Parametern."""
+def generate_response(prompt, temperature=0.2, max_tokens=250):
+    """Generiert eine Antwort thread-sicher mit optimierten Parametern."""
     with model_lock:
-        return model.generate(prompt, temp=temperature)
+        # Begrenzte Token-Anzahl für schnellere Generation
+        return model.generate(
+            prompt, 
+            temp=temperature,
+            max_tokens=max_tokens,
+            streaming=False
+        )
 
 def update_context(session_id: str, user_input: str, answer: str):
     """Speichert den Gesprächskontext als strukturierte Liste."""
@@ -90,28 +148,27 @@ def update_context(session_id: str, user_input: str, answer: str):
         context = conversation_contexts.get(session_id, [])
         context.append({"role": "user", "content": user_input})
         context.append({"role": "assistant", "content": answer})
-        # Begrenze den Kontext auf die letzten 10 Nachrichten (5 Austausche)
-        if len(context) > 10:
-            context = context[-10:]
+        # Reduzierte Kontextgröße für bessere Performance
+        if len(context) > 6:  # 3 Austausche statt 5
+            context = context[-6:]
         conversation_contexts[session_id] = context
 
 def build_context_string(session_id: str, in_english=False) -> str:
-    """
-    Baut dynamisch einen Kontext-String zusammen, indem er
-    nur die relevanten Nachrichten aus der strukturierten Liste einbezieht.
-    
-    Wenn in_english=True, werden die Rollen auf Englisch übersetzt.
-    """
+    """Optimierte Kontext-Erstellung."""
     context = conversation_contexts.get(session_id, [])
-    lines = []
+    if not context:
+        return ""
     
+    lines = []
     user_label = "User" if in_english else "Nutzer"
     assistant_label = "Assistant" if in_english else "Assistent"
     
-    for msg in context:
+    # Nur die letzten 2 relevanten Nachrichten verwenden
+    recent_context = context[-4:] if len(context) > 4 else context
+    
+    for msg in recent_context:
         content = msg["content"]
-        # Übersetze den Inhalt ins Englische, wenn gewünscht
-        if in_english:
+        if in_english and not msg.get("translated"):
             content = translate_to_english(content)
             
         if msg["role"] == "user":
@@ -122,158 +179,52 @@ def build_context_string(session_id: str, in_english=False) -> str:
     return "\n".join(lines)
 
 def clear_context_if_off_topic(session_id: str, user_input: str, threshold: float = 0.4):
-    """
-    Löscht den gespeicherten Kontext, wenn der aktuelle Input thematisch 
-    zu weit von der letzten relevanten Nachricht abweicht.
-    """
-    # Prüfe auf anaphorische Pronomen im neuen Input
-    if re.search(r"\b(ihn|ihm|seine|seiner|ihr|ihre|er|sie|es|damit)\b", user_input, re.IGNORECASE):
+    """Optimierte Themen-Prüfung."""
+    # Schnelle Regex-Prüfung zuerst
+    if re.search(r"\b(ihn|ihm|seine|seiner|ihr|ihre|er|sie|es|damit|das|was|wann|wo|wie|warum)\b", user_input, re.IGNORECASE):
         return
 
     context = conversation_contexts.get(session_id, [])
+    if not context:
+        return
+        
+    # Nur die letzte Nachricht prüfen für bessere Performance
     if context:
-        # Kombiniere die letzten Nachrichten, um einen repräsentativen Kontext zu erhalten
-        last_relevant = ""
-        for msg in reversed(context):
-            last_relevant = msg["content"] + " " + last_relevant
-            if msg["role"] == "assistant":
-                break
-        if last_relevant:
-            embeddings = embedding_model.encode([last_relevant, user_input], convert_to_tensor=True)
+        last_msg = context[-1]["content"]
+        
+        # Embedding-Berechnung optimiert
+        with torch.no_grad():
+            embeddings = embedding_model.encode([last_msg, user_input], convert_to_tensor=True)
             similarity = float(util.pytorch_cos_sim(embeddings[0], embeddings[1]))
-            if similarity < threshold:
-                conversation_contexts[session_id] = []
-                print(f"Kontext zurückgesetzt (Ähnlichkeit: {similarity:.2f}).")
+            
+        if similarity < threshold:
+            conversation_contexts[session_id] = []
+            print(f"Kontext zurückgesetzt (Ähnlichkeit: {similarity:.2f}).")
 
 def post_process_answer(answer: str) -> str:
-    """
-    Verbesserte Funktion zum Entfernen unerwünschter Zusatzinformationen,
-    Begrenzung der Antwortlänge und Sicherstellung vollständiger Sätze.
-    """
-    # Wenn die Antwort eine Frage enthält, schneide alles danach ab
-    question_patterns = [
-        r"\?(\s|$)",  # Fragezeichen gefolgt von Leerzeichen oder Ende
-        r"No further question",
-        r"Would you like",
-        r"Can I",
-        r"Should I",
-        r"Do you want",
-        r"Keine weitere Frage",
-        r"Möchtest du",
-        r"Kann ich",
-        r"Soll ich",
-        r"Willst du"
-    ]
+    """Optimierte Nachbearbeitung."""
+    # Schnelle Regex-Operationen
+    if not answer:
+        return ""
     
-    for pattern in question_patterns:
-        match = re.search(pattern, answer)
-        if match:
-            # Schneide bei der ersten Frage ab und behalte nur den Satz mit dem Fragezeichen
-            pos = match.start()
-            # Finde das Ende des Satzes
-            end_pos = answer.find('.', pos)
-            if end_pos != -1:
-                answer = answer[:end_pos+1]
-            else:
-                # Wenn kein Satzende gefunden wird, nimm alles bis zur Frage
-                answer = answer[:pos]
-            break
-    
-    # Dialogmuster erkennen und entfernen (alles nach dem ersten Dialogwechsel)
-    dialogue_patterns = [
-        r"\n[A-Z][^\.]*:", # Neue Zeile, Großbuchstabe, dann Doppelpunkt
-        r"\nDu:",
-        r"\nIch:",
-        r"\nNutzer:",
-        r"\nAssistent:",
-        r"\nYou:",
-        r"\nI:",
-        r"\nUser:",
-        r"\nAssistant:"
-    ]
-    
-    for pattern in dialogue_patterns:
-        match = re.search(pattern, answer)
-        if match:
-            answer = answer[:match.start()]
-            break
-    
-    # Entferne Sätze mit selbstreferenziellen Inhalten (deutsch und englisch)
-    self_ref_patterns = [
+    # Vereinfachte Patterns
+    patterns_to_remove = [
+        r"\?.*$",  # Alles nach dem ersten Fragezeichen
+        r"\n[A-Z][^\.]*:",  # Dialog-Pattern
         r"Ich kann dir[^\.]*\.",
-        r"Benötigst du[^\.]*\?",
-        r"Möchtest du[^\.]*\?",
-        r"Kann ich[^\.]*\?",
-        r"Du möchtest[^\.]*\?",
-        r"I can help you[^\.]*\.",
-        r"Do you need[^\.]*\?",
-        r"Would you like[^\.]*\?",
-        r"Can I[^\.]*\?",
-        r"You want[^\.]*\?"
+        r"I can help you[^\.]*\."
     ]
     
-    for pattern in self_ref_patterns:
-        answer = re.sub(pattern, "", answer)
+    for pattern in patterns_to_remove:
+        answer = re.sub(pattern, "", answer, flags=re.IGNORECASE | re.MULTILINE)
     
-    # Entferne explizite Marker und alles danach (deutsch und englisch)
-    markers = [
-        "Hinweis:", "Die Frage wurde", "Die Antwort sollte", "Nutzer:", "Frage:", "Falsche",
-        "Bitte korrigiere", "Hier sind einige Beispiele",
-        "Note:", "The question was", "The answer should", "User:", "Question:", "Wrong",
-        "Please correct", "Here are some examples"
-    ]
-    
-    for marker in markers:
-        if marker in answer:
-            parts = answer.split(marker)
-            answer = parts[0].strip()
-    
-    # Entferne "Antwort:" oder "Answer:" und alles davor
-    for marker in ["Antwort:", "Answer:"]:
-        if marker in answer:
-            parts = answer.split(marker)
-            if len(parts) > 1:
-                answer = parts[1].strip()
-    
-    # Entferne alles nach "welche Art von" oder ähnlichen Fragmenten neuer Fragen (deutsch und englisch)
-    new_topic_fragments = [
-        "welche Art von", "wie funktioniert", "was ist", "warum ist", "wann sollte", "wo kann",
-        "what kind of", "how does", "what is", "why is", "when should", "where can"
-    ]
-    
-    for fragment in new_topic_fragments:
-        if fragment.lower() in answer.lower():
-            pos = answer.lower().find(fragment.lower())
-            # Finde den Anfang des Satzes
-            start_pos = answer.rfind('.', 0, pos)
-            if start_pos != -1:
-                answer = answer[:start_pos+1]
-            break
-    
-    # Teile die Antwort in Sätze auf
+    # Schnelle Satz-Trennung
     sentences = re.split(r'(?<=[.!?])\s+', answer)
-    sentences = [s.strip() for s in sentences if s.strip()]
+    complete_sentences = [s.strip() for s in sentences if s.strip() and re.search(r'[.!?]$', s)]
     
-    # Behalte nur vollständige Sätze (die mit Punkt, Ausrufezeichen oder Fragezeichen enden)
-    complete_sentences = []
-    for s in sentences:
-        if s and re.search(r'[.!?]$', s):
-            complete_sentences.append(s)
-    
-    # Entferne Wiederholungen von Sätzen
-    unique_sentences = []
-    for sentence in complete_sentences:
-        if sentence not in unique_sentences:
-            unique_sentences.append(sentence)
-    
-    # Stelle die Antwort wieder zusammen
-    processed_answer = ' '.join(unique_sentences)
-    
-    # Entferne überflüssige Leerzeichen
-    processed_answer = re.sub(r'\s+', ' ', processed_answer)
-    processed_answer = processed_answer.strip()
-    
-    return processed_answer
+    # Max. 3 Sätze für konzise Antworten
+    result = ' '.join(complete_sentences[:3])
+    return re.sub(r'\s+', ' ', result).strip()
 
 @app.route("/", methods=["GET"])
 def health_check():
@@ -286,93 +237,67 @@ def chat():
     user_input = data.get("input", "").strip()
     explain_flag = data.get("explain", False)
 
-    # Prüfe, ob der Kontext thematisch passt – ansonsten zurücksetzen
-    clear_context_if_off_topic(session_id, user_input)
-
-    # Cache prüfen
-    cached_key = f"{session_id}:{user_input}:{explain_flag}"
+    # Erweiterte Cache-Strategie
+    cached_key = f"{session_id}:{hash(user_input)}:{explain_flag}"
     cached_response = cache.get(cached_key)
     if cached_response:
         return jsonify(cached_response)
 
-    # Übersetze die Nutzereingabe ins Englische
-    translated_input = translate_to_english(user_input)
-    print(f"Übersetzt: '{user_input}' -> '{translated_input}'")
+    # Prüfe, ob der Kontext thematisch passt
+    clear_context_if_off_topic(session_id, user_input)
 
-    # Dynamisch den Kontext in englischer Sprache zusammenbauen
-    context_str = build_context_string(session_id, in_english=True)
+    # Parallele Übersetzung und Kontext-Aufbau
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as local_executor:
+        # Übersetze die Nutzereingabe ins Englische
+        translation_future = local_executor.submit(translate_to_english, user_input)
+        
+        # Baue Kontext auf
+        context_str = build_context_string(session_id, in_english=True)
+        
+        # Warte auf Übersetzung
+        translated_input = translation_future.result()
 
-    # Englischer Prompt für bessere Ergebnisse
+    # Verkürzter, optimierter Prompt
     prompt = (
-    "Your task is to help an autistic user with clear, structured communication. Follow these steps:\n\n"
-    "1. Analyze the core question precisely:\n"
-    "   - Identify and list the key elements of the question.\n"
-    "   - Break down complex instructions into the smallest possible steps.\n\n"
-    "2. Use literal, direct language:\n"
-    "   - Avoid idioms, metaphors, or ambiguous expressions.\n"
-    "   - Generate multiple variants and choose the clearest and most direct formulation.\n\n"
-    "3. Provide structured, step-by-step explanations:\n"
-    "   - Ensure that a maximum of 1 fact is reported per sentence.\n"
-    "   - Make sure that each step builds logically on the previous one.\n"
-    "   - Avoid nested sentence structures to enable simple, understandable, linear explanation.\n\n"
-    "4. Maintain consistency and check understanding:\n"
-    "   - Continuously ensure that each part of your answer is consistent with the original question.\n\n"
-    "5. Ensure that all information is objective and verifiable:\n"
-    "   - Completely avoid emotional language and subjective interpretations.\n"
-    "   - Use only verifiable facts and clear, neutral formulations.\n\n"
-    "6. Ensure that your answer is complete and precise:\n"
-    "   - Check whether you have included all relevant details in your answer.\n"
-    "   - Avoid cutting content if relevant information is lost.\n"
-    "   - Completely remove internal model thoughts, speculations, or evaluations.\n\n"
-    "7. Consider multimodal processing preferences:\n"
-    "   - For complex concepts, offer structured listings or simple visualizations.\n"
-    "   - Use lists, tables, or hierarchical structures for multi-part information.\n"
-    "   - Also describe visual elements in text to support different processing paths.\n\n"
-    "8. Optimize the visual structure to avoid sensory overload:\n"
-    "   - Use sufficient empty space between logical sections.\n"
-    "   - Avoid text blocks that are too dense and long paragraphs.\n"
-    "   - Highlight important key information through uniform, non-distracting formatting.\n\n"
-    "9. Adapt the communication style individually:\n"
-    "   - Consider the desired level of detail based on the request.\n"
-    "   - Use terms and explanation levels that correspond to the user's level of understanding.\n"
-    "   - Offer both simplified and more detailed explanations if necessary.\n\n"
-    "10. Link with relevant special interests, if possible:\n"
-    "    - Use examples from areas such as natural sciences, logic, or systematic processes.\n"
-    "    - Establish connections to related concepts that could be conducive to understanding.\n\n"
-    "Answer configuration:\n"
-    "- Do not think out loud.\n"
-    "- Do not write internal considerations, no control points, no self-criticism, no follow-up instructions.\n"
-    "- Start directly with the answer.\n"
-    "- No reference to the question formulation or the answer structure itself.\n"
-    "- No introduction like 'Here is your answer' or 'I think that...'\n\n"
-    "Your answer:\n"
-    f"{context_str}\n\n"
-    f"Current question: {translated_input}\n\n"
-    "Your answer:"
-)
+        "Your task: Provide clear, direct answers for autistic users.\n\n"
+        "Key guidelines:\n"
+        "- Use literal, concrete language\n"
+        "- Avoid metaphors and idioms\n"
+        "- Give step-by-step explanations\n"
+        "- Be precise and factual\n"
+        "- Keep answers focused and concise\n\n"
+        f"Context: {context_str}\n\n"
+        f"Question: {translated_input}\n\n"
+        "Your answer:"
+    )
 
     try:
-        # Generiere Antwort auf Englisch
-        raw_response = executor.submit(
-            generate_response, 
-            prompt, 
-            temperature=0.2   
-        ).result()
-        
-        # Post-Processing der englischen Antwort
-        processed_en_response = post_process_answer(raw_response)
-        
-        # Übersetze zurück ins Deutsche
-        german_response = translate_to_german(processed_en_response)
-        print(f"Antwort übersetzt: EN -> DE")
-        
-        # Finale Nachbearbeitung der deutschen Antwort
-        answer = post_process_answer(german_response)
+        # Parallele Antwortgenerierung und Post-Processing
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as local_executor:
+            # Generiere Antwort mit reduzierter Token-Anzahl
+            response_future = local_executor.submit(
+                generate_response, 
+                prompt, 
+                temperature=0.2,
+                max_tokens=200  # Reduziert für schnellere Generation
+            )
+            
+            # Warte auf Antwort
+            raw_response = response_future.result()
+            
+            # Post-Processing der englischen Antwort
+            processed_en_response = post_process_answer(raw_response)
+            
+            # Übersetze zurück ins Deutsche
+            german_response = translate_to_german(processed_en_response)
+            
+            # Finale Nachbearbeitung
+            answer = post_process_answer(german_response)
         
     except Exception as e:
         return jsonify({"error": str(e)})
 
-    # Kontext mit Originaleingabe und übersetzter Antwort aktualisieren
+    # Kontext aktualisieren
     update_context(session_id, user_input, answer)
 
     explanation_text = ""
@@ -380,49 +305,60 @@ def chat():
         explanation_text = generate_explanation(answer, user_input)
 
     response_data = {"response": answer, "explanation": explanation_text}
-    cache.set(cached_key, response_data, timeout=300)
+    # Längeres Caching
+    cache.set(cached_key, response_data, timeout=3600)
 
     return jsonify(response_data)
 
 def generate_explanation(answer, user_input):
-    """Generiert eine einfache Erklärung für die Antwort mit verbesserter Anweisung."""
+    """Optimierte Erklärungsgenerierung."""
+    # Einfache Fallback-Erklärung für bessere Performance
+    if len(answer) < 50:
+        return "Kurze Antwort basierend auf Ihrer Frage."
+    
     # Übersetze für die Erklärung ins Englische
     en_answer = translate_to_english(answer)
     en_input = translate_to_english(user_input)
     
+    # Verkürzter Erklärungsprompt
     explanation_prompt = (
-        "Your task is to generate a meta-explanation that helps an autistic user better understand your answer. \n\n"
-        "Please follow these principles:\n"
-        "1. Explain the logic behind your answer.\n"
-        "2. Clarify the connections between the question and your answer.\n"
-        "3. Identify and resolve potential ambiguities.\n"
-        "4. Avoid repeating the original answer.\n\n"
+        "Explain briefly why this answer fits the question.\n\n"
         f"Question: {en_input}\n"
         f"Answer: {en_answer}\n\n"
-        "Your explanation:"
+        "Explanation:"
     )
     
     try:
-        # Generiere Erklärung auf Englisch
+        # Reduzierte Token-Anzahl für Erklärung
         raw_explanation = model.generate(
             explanation_prompt, 
-            temp=0.2
+            temp=0.2,
+            max_tokens=100
         )
         
-        # Bereinige die englische Erklärung
         processed_en_explanation = post_process_answer(raw_explanation)
-        
-        # Übersetze ins Deutsche
         german_explanation = translate_to_german(processed_en_explanation)
         
-        # Finale Bereinigung
         return post_process_answer(german_explanation)
         
     except Exception as e:
-        return f"Fehler bei der Erklärung: {str(e)}"
+        return f"Erklärung nicht verfügbar: {str(e)}"
 
 if __name__ == "__main__":
+    # Optimierte Initialisierung
     load_model()
     with app.app_context():
         warm_up_model()
-    app.run(ssl_context=("cert.pem", "key.pem"), host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+        # Pre-cache häufig verwendete Übersetzungen
+        translate_to_english("Hallo")
+        translate_to_german("Hello")
+    
+    # Produktionsserver-Konfiguration
+    app.run(
+        ssl_context=("cert.pem", "key.pem"), 
+        host="0.0.0.0", 
+        port=5000, 
+        debug=False, 
+        use_reloader=False,
+        threaded=True  # Aktiviert Threading für Flask
+    )
