@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { SUN } from '../data/projects'
 
@@ -12,6 +13,9 @@ import { SUN } from '../data/projects'
 export default function Sun() {
   const coreRef = useRef()
   const haloRef = useRef()
+
+  const sunMap = useTexture(SUN.texture)
+  sunMap.colorSpace = THREE.SRGBColorSpace
 
   useFrame((state) => {
     const pulse = 1 + Math.sin(state.clock.elapsedTime * 1.5) * 0.03
@@ -27,7 +31,7 @@ export default function Sun() {
           kräftig zum Strahlen bringt. */}
       <mesh ref={coreRef}>
         <sphereGeometry args={[SUN.radius, 64, 64]} />
-        <meshBasicMaterial color={SUN.color} toneMapped={false} />
+        <meshBasicMaterial map={sunMap} color={SUN.color} toneMapped={false} />
       </mesh>
 
       {/* Weiches Glühen über ein kameragerichtetes Sprite (radialer

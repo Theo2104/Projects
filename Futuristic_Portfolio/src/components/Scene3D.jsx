@@ -33,8 +33,9 @@ export default function Scene3D({ selectedId, onSelect }) {
     >
       <color attach="background" args={['#05060a']} />
 
-      {/* Grundhelligkeit, damit Nachtseiten nicht pechschwarz sind */}
-      <ambientLight intensity={0.08} />
+      {/* Grundhelligkeit: hebt die Texturen auch auf den Nachtseiten an,
+          damit die Planeten von überall lesbar bleiben (Showcase > Realismus). */}
+      <ambientLight intensity={0.35} />
 
       <Suspense fallback={<Loader />}>
         <Starfield count={quality.stars} />

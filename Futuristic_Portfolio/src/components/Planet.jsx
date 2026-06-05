@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html, useTexture, useGLTF } from '@react-three/drei'
 import gsap from 'gsap'
+import * as THREE from 'three'
 
 // ------------------------------------------------------------------
 //  Ein Planet = ein Projekt (CLAUDE.md, Abschnitt 3.C).
@@ -25,6 +26,12 @@ export default function Planet({
   const spinRef = useRef() // Eigenrotation des Planeten
   const matRef = useRef()
   const [hovered, setHovered] = useState(false)
+
+  // Texturierte Planeten zeigen im Ruhezustand ihre echten Farben
+  // (kein Glow-Tint); der Akzent-Glow dient nur als Hover-Highlight.
+  // Farbige Platzhalter-Kugeln glühen dagegen dauerhaft dezent.
+  const baseGlow = project.texture ? 0 : 0.35
+  const hoverGlow = project.texture ? 0.18 : 1.1
 
   // Akkumulierter Bahnwinkel — wird nur fortgeschrieben, wenn NICHT
   // fokussiert (sauberes Pausieren & Fortsetzen ohne Sprung).
@@ -63,12 +70,12 @@ export default function Planet({
     }
     if (matRef.current) {
       gsap.to(matRef.current, {
-        emissiveIntensity: active ? 1.1 : 0.35,
+        emissiveIntensity: active ? hoverGlow : baseGlow,
         duration: 0.5,
         ease: 'power2.out',
       })
     }
-  }, [hovered, isSelected])
+  }, [hovered, isSelected, baseGlow, hoverGlow])
 
   useEffect(() => {
     document.body.style.cursor = hovered ? 'pointer' : 'auto'
@@ -158,15 +165,17 @@ function PlanetMaterial({ project, matRef }) {
 
 function TexturedMaterial({ project, matRef }) {
   const map = useTexture(project.texture)
+  // Farbtextur im sRGB-Farbraum interpretieren (sonst wirkt sie flau/dunkel).
+  map.colorSpace = THREE.SRGBColorSpace
   return (
     <meshStandardMaterial
       ref={matRef}
       map={map}
-      color={project.color}
-      emissive={project.color}
-      emissiveIntensity={0.35}
-      roughness={0.8}
-      metalness={0.1}
+      color="#ffffff" // keine Tönung → echte Texturfarben
+      emissive={project.color} // Akzent-Glow nur beim Hover (Start: 0)
+      emissiveIntensity={0}
+      roughness={0.9}
+      metalness={0.05}
     />
   )
 }

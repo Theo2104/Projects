@@ -25,7 +25,7 @@ export const projects = [
     size: 0.85,
     color: '#22d3ee', // Cyan
     ring: false,
-    texture: null,
+    texture: '/textures/2k_earth_daymap.jpg',
     model: null, // z. B. '/planet1.glb'
   },
   {
@@ -41,7 +41,7 @@ export const projects = [
     size: 1.05,
     color: '#a855f7', // Violett
     ring: false,
-    texture: null,
+    texture: '/textures/2k_mercury.jpg',
     model: null, // z. B. '/planet2.glb'
   },
   {
@@ -57,7 +57,7 @@ export const projects = [
     size: 0.95,
     color: '#f59e0b', // Bernstein
     ring: true, // Saturn-artiger Ring
-    texture: null,
+    texture: '/textures/2k_saturn.jpg',
     model: null, // z. B. '/planet3.glb'
   },
 ]
@@ -73,4 +73,5 @@ export const SUN = {
   radius: 1.7,
   color: '#ffd27a',
   emissive: '#ff8a1f',
+  texture: '/textures/2k_sun.jpg', // Oberflächendetail des Leuchtkerns
 }
