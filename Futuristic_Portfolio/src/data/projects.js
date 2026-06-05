@@ -27,6 +27,9 @@ export const projects = [
     ring: false,
     texture: '/textures/2k_earth_daymap.jpg',
     model: null, // z. B. '/planet1.glb'
+    // --- Links & Live-Daten ---
+    repo: null, // 'owner/name' → zeigt GitHub-Sterne & letzten Commit
+    demo: null, // Live-Demo-URL
   },
   {
     id: 'chat',
@@ -43,6 +46,8 @@ export const projects = [
     ring: false,
     texture: '/textures/2k_mercury.jpg',
     model: null, // z. B. '/planet2.glb'
+    repo: null,
+    demo: null,
   },
   {
     id: 'matrix',
@@ -59,6 +64,10 @@ export const projects = [
     ring: true, // Saturn-artiger Ring
     texture: '/textures/2k_saturn.jpg',
     model: null, // z. B. '/planet3.glb'
+    // DEMO-Repo, damit die Live-Daten sichtbar sind. Durch DEIN EIGENES
+    // ÖFFENTLICHES Repo ersetzen (private Repos liefern anonym 404).
+    repo: 'pmndrs/react-three-fiber',
+    demo: null,
   },
 ]
 

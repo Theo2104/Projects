@@ -31,7 +31,7 @@ export default function Planet({
   // (kein Glow-Tint); der Akzent-Glow dient nur als Hover-Highlight.
   // Farbige Platzhalter-Kugeln glühen dagegen dauerhaft dezent.
   const baseGlow = project.texture ? 0 : 0.35
-  const hoverGlow = project.texture ? 0.18 : 1.1
+  const hoverGlow = project.texture ? 0.1 : 1.1
 
   // Akkumulierter Bahnwinkel — wird nur fortgeschrieben, wenn NICHT
   // fokussiert (sauberes Pausieren & Fortsetzen ohne Sprung).

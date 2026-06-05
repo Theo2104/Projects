@@ -31,14 +31,18 @@ export default function CameraRig({ selectedId, controlsRef, positionsRef }) {
         }
 
       const len = Math.hypot(pos.x, pos.z) || 1
-      const dirX = pos.x / len
-      const dirZ = pos.z / len
-      const dist = project.size * 3 + 3 // Abstand vor dem Planeten
+      const rx = pos.x / len // radial (von der Sonne weg)
+      const rz = pos.z / len
+      const tx = -rz // tangential (seitlich)
+      const tz = rx
+      const dist = project.size * 3 + 3
 
+      // Seitlich + leicht nach außen + erhöht: zeigt die sonnenbeschienene
+      // Hälfte (Tag-/Nacht-Grenze) statt der reinen Nachtseite.
       camPos = {
-        x: pos.x + dirX * dist,
-        y: pos.y + project.size * 1.4 + 1,
-        z: pos.z + dirZ * dist,
+        x: pos.x + tx * dist * 0.85 + rx * dist * 0.4,
+        y: pos.y + project.size * 1.2 + 1.2,
+        z: pos.z + tz * dist * 0.85 + rz * dist * 0.4,
       }
       lookTarget = { x: pos.x, y: pos.y, z: pos.z }
     } else {
