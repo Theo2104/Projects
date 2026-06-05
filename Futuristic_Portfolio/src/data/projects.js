@@ -1,12 +1,12 @@
 // ------------------------------------------------------------------
-//  Zentrale Projekt-Daten.
+//  Zentrale Projekt-Daten — jedes Projekt ist ein Planet im System.
 //
-//  Jedes Projekt-Objekt steuert sowohl das 3D-Objekt in der Szene als
-//  auch den Eintrag im UI-Menü und die Info-Karte.
+//  Die Orbit-Parameter steuern die Umlaufbahn; color/size/ring das
+//  Aussehen des Planeten. Derselbe Eintrag speist auch Menü & Info-Karte.
 //
-//  ➜ Echtes Modell einhängen: setze `model` auf den Pfad deiner Datei
-//    in public/ (z. B. '/projekt1.glb'). Solange `model` null ist, wird
-//    automatisch die gläserne Platzhalter-Geometrie (`geometry`) genutzt.
+//  ➜ Echtes Modell:  `model` auf einen Pfad in public/ setzen (z. B.
+//    '/planet1.glb'). Solange null, wird die prozedurale Kugel gerendert.
+//  ➜ Textur:         `texture` auf '/textures/xyz.jpg' setzen (optional).
 // ------------------------------------------------------------------
 
 export const projects = [
@@ -17,11 +17,16 @@ export const projects = [
     description:
       'Eine futuristische Shopping-Experience mit Echtzeit-Warenkorb, animierten Produktkarten und einem gläsernen Checkout-Flow.',
     stack: ['React', 'Stripe', 'Framer Motion'],
-    // Position des Objekts im 3D-Raum [x, y, z]
-    position: [-1.8, 0.8, 0.4],
+    // --- Orbit ---
+    orbitRadius: 6,
+    orbitSpeed: 0.18, // innen = schneller
+    startAngle: 0,
+    // --- Aussehen ---
+    size: 0.85,
     color: '#22d3ee', // Cyan
-    geometry: 'bag', // Platzhalter bis dein .glb da ist
-    model: null, // z. B. '/projekt1.glb'
+    ring: false,
+    texture: null,
+    model: null, // z. B. '/planet1.glb'
   },
   {
     id: 'chat',
@@ -30,10 +35,14 @@ export const projects = [
     description:
       'Eine Messaging-Plattform mit flüssigen Übergängen, Presence-Indikatoren und Ende-zu-Ende-Verschlüsselung im Chrome-Look.',
     stack: ['React', 'WebSocket', 'Node'],
-    position: [1.4, -0.2, -0.3],
-    color: '#e5e7eb', // Chrome
-    geometry: 'bubble',
-    model: null, // z. B. '/projekt2.glb'
+    orbitRadius: 9.5,
+    orbitSpeed: 0.12,
+    startAngle: 2.2,
+    size: 1.05,
+    color: '#a855f7', // Violett
+    ring: false,
+    texture: null,
+    model: null, // z. B. '/planet2.glb'
   },
   {
     id: 'matrix',
@@ -42,15 +51,26 @@ export const projects = [
     description:
       'Ein holografisches Daten-Visualisierungstool mit Cyberpunk-Ästhetik, Live-Graphen und einer GPU-beschleunigten Render-Pipeline.',
     stack: ['React Three Fiber', 'WebGL', 'GLSL'],
-    position: [3.8, 0.7, 0.2],
-    color: '#a855f7', // Violett
-    geometry: 'cube',
-    model: null, // z. B. '/projekt3.glb'
+    orbitRadius: 13,
+    orbitSpeed: 0.08,
+    startAngle: 4.3,
+    size: 0.95,
+    color: '#f59e0b', // Bernstein
+    ring: true, // Saturn-artiger Ring
+    texture: null,
+    model: null, // z. B. '/planet3.glb'
   },
 ]
 
-// Standard-Kameraposition (Übersicht über alle Objekte)
+// Standard-Kamera: flacher Blick mitten ins System (immersiv „im All").
 export const HOME_CAMERA = {
-  position: [1.2, 1.1, 9.5],
-  target: [1.2, 0.2, 0],
+  position: [0, 3.5, 20],
+  target: [0, 0, 0],
+}
+
+// Eigenschaften der zentralen Sonne (Core).
+export const SUN = {
+  radius: 1.7,
+  color: '#ffd27a',
+  emissive: '#ff8a1f',
 }

@@ -1,98 +1,90 @@
 import { Suspense, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
-import {
-  OrbitControls,
-  Environment,
-  Lightformer,
-  AdaptiveDpr,
-  AdaptiveEvents,
-} from '@react-three/drei'
+import { OrbitControls, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { projects, HOME_CAMERA } from '../data/projects'
 import { useQuality } from '../hooks/useQuality'
-import ProjectObject from './ProjectObject'
-import Particles from './Particles'
+import Starfield from './Starfield'
+import Sun from './Sun'
+import Planet from './Planet'
+import OrbitRing from './OrbitRing'
 import CameraRig from './CameraRig'
+import Effects from './Effects'
 import Loader from './Loader'
 
 // ------------------------------------------------------------------
-//  Bildschirmfüllende 3D-Szene (CLAUDE.md, Abschnitt 3.A).
-//  Hält Lichter, Umgebung, Partikel, alle Projekt-Objekte sowie die
-//  GSAP-gesteuerte Kamera. OrbitControls ist auf Schwenken begrenzt
-//  (kein Zoom), damit der Nutzer die Orientierung behält.
+//  Begehbares Sonnensystem (CLAUDE.md, Abschnitt 3.A).
+//  Die Kamera sitzt mitten im System; OrbitControls (Ziel = Ursprung)
+//  erlauben freies 360°-Umsehen mit begrenztem Zoom. Bündelt Sterne,
+//  Sonne, Planeten, Umlaufbahnen, Kamera-Fahrten und Bloom.
 // ------------------------------------------------------------------
 export default function Scene3D({ selectedId, onSelect }) {
   const controlsRef = useRef()
+  // Geteilte Live-Positionen der Planeten (für das CameraRig).
+  const positionsRef = useRef({})
   const quality = useQuality()
 
   return (
     <Canvas
       className="absolute inset-0"
       dpr={quality.dpr}
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
-      camera={{ position: HOME_CAMERA.position, fov: 45, near: 0.1, far: 100 }}
+      gl={{ antialias: true, powerPreference: 'high-performance' }}
+      camera={{ position: HOME_CAMERA.position, fov: 50, near: 0.1, far: 200 }}
       onPointerMissed={() => onSelect(null)}
     >
-      {/* Grund-Beleuchtung */}
-      <ambientLight intensity={0.35} />
-      <directionalLight position={[5, 8, 5]} intensity={1.2} color="#ffffff" />
-      <pointLight position={[-8, -4, -6]} intensity={40} color="#a855f7" distance={30} />
-      <pointLight position={[8, 6, -4]} intensity={30} color="#22d3ee" distance={30} />
+      <color attach="background" args={['#05060a']} />
+
+      {/* Grundhelligkeit, damit Nachtseiten nicht pechschwarz sind */}
+      <ambientLight intensity={0.08} />
 
       <Suspense fallback={<Loader />}>
-        {/* Selbst-erzeugte Umgebung für Glas-Reflexionen (offline-fähig) */}
-        <Environment resolution={quality.isMobile ? 128 : 256}>
-          <Lightformer
-            intensity={2}
-            position={[0, 4, -6]}
-            scale={[10, 6, 1]}
-            color="#22d3ee"
-          />
-          <Lightformer
-            intensity={1.6}
-            position={[-6, 1, 2]}
-            scale={[6, 6, 1]}
-            color="#a855f7"
-          />
-          <Lightformer
-            intensity={1}
-            position={[6, -2, 2]}
-            scale={[6, 6, 1]}
-            color="#ffffff"
-          />
-        </Environment>
+        <Starfield count={quality.stars} />
 
-        {/* Alle Projekt-Objekte */}
+        {/* Zentrale Sonne (Lichtquelle des Systems) */}
+        <Sun />
+
+        {/* Umlaufbahnen + Planeten */}
+        {quality.orbitRings &&
+          projects.map((p) => (
+            <OrbitRing key={`ring-${p.id}`} radius={p.orbitRadius} />
+          ))}
+
         {projects.map((project) => (
-          <ProjectObject
+          <Planet
             key={project.id}
             project={project}
             quality={quality}
+            positionsRef={positionsRef}
             isSelected={selectedId === project.id}
             isDimmed={selectedId !== null && selectedId !== project.id}
             onSelect={onSelect}
           />
         ))}
-
-        {/* Reaktives Partikelfeld */}
-        <Particles count={quality.sparkles} />
       </Suspense>
 
       {/* Kamera-Fahrten bei Auswahl */}
-      <CameraRig selectedId={selectedId} controlsRef={controlsRef} />
+      <CameraRig
+        selectedId={selectedId}
+        controlsRef={controlsRef}
+        positionsRef={positionsRef}
+      />
 
-      {/* Eingeschränkte Steuerung: kein Zoom, begrenzte Vertikaldrehung */}
+      {/* Freies Umsehen, begrenzter Zoom (keine Desorientierung) */}
       <OrbitControls
         ref={controlsRef}
         makeDefault
-        enableZoom={false}
         enablePan={false}
-        minPolarAngle={Math.PI / 3}
-        maxPolarAngle={Math.PI / 1.8}
+        minDistance={4}
+        maxDistance={32}
+        minPolarAngle={0.15}
+        maxPolarAngle={Math.PI * 0.9}
         rotateSpeed={0.5}
+        zoomSpeed={0.6}
         target={HOME_CAMERA.target}
       />
 
-      {/* Automatische Performance-Anpassung */}
+      {/* Weltraum-Glühen (auf Mobil deaktiviert) */}
+      <Effects enabled={quality.bloom} />
+
       <AdaptiveDpr pixelated />
       <AdaptiveEvents />
     </Canvas>

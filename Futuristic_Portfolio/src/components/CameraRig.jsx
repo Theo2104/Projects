@@ -4,28 +4,43 @@ import gsap from 'gsap'
 import { projects, HOME_CAMERA } from '../data/projects'
 
 // ------------------------------------------------------------------
-//  Animiert die Kameraposition flüssig per GSAP, wenn ein Projekt
-//  ausgewählt wird (CLAUDE.md, Abschnitt 3.C). Bei `selectedId === null`
-//  kehrt die Kamera in die Übersicht (HOME_CAMERA) zurück.
-//
-//  controlsRef → Ref auf die <OrbitControls> (für das Schwenken des
-//  Blickziels .target).
+//  Fliegt die Kamera per GSAP zum gewählten Planeten (CLAUDE.md 3.F).
+//  Da Planeten kreisen, wird der ausgewählte Planet von Planet.jsx
+//  „eingefroren"; seine aktuelle Position liefert `positionsRef`.
+//  Die Kamera positioniert sich radial außerhalb des Planeten und
+//  blickt nach innen (Planet vor der leuchtenden Sonne).
 // ------------------------------------------------------------------
-export default function CameraRig({ selectedId, controlsRef }) {
+export default function CameraRig({ selectedId, controlsRef, positionsRef }) {
   const { camera } = useThree()
 
   useEffect(() => {
     const controls = controlsRef.current
-
-    // Zielwerte bestimmen
-    let camPos, lookTarget
     const project = projects.find((p) => p.id === selectedId)
 
+    let camPos, lookTarget
+
     if (project) {
-      const [x, y, z] = project.position
-      // Etwas seitlich/vor dem Objekt positionieren für eine schöne Sicht
-      camPos = { x: x + 1.4, y: y + 0.8, z: z + 4 }
-      lookTarget = { x, y, z }
+      // Aktuelle (eingefrorene) Planetenposition holen, sonst aus Bahn
+      // berechnen als Fallback.
+      const pos =
+        positionsRef?.current?.[project.id] ??
+        {
+          x: Math.cos(project.startAngle) * project.orbitRadius,
+          y: 0,
+          z: Math.sin(project.startAngle) * project.orbitRadius,
+        }
+
+      const len = Math.hypot(pos.x, pos.z) || 1
+      const dirX = pos.x / len
+      const dirZ = pos.z / len
+      const dist = project.size * 3 + 3 // Abstand vor dem Planeten
+
+      camPos = {
+        x: pos.x + dirX * dist,
+        y: pos.y + project.size * 1.4 + 1,
+        z: pos.z + dirZ * dist,
+      }
+      lookTarget = { x: pos.x, y: pos.y, z: pos.z }
     } else {
       const [hx, hy, hz] = HOME_CAMERA.position
       const [tx, ty, tz] = HOME_CAMERA.target
@@ -33,7 +48,6 @@ export default function CameraRig({ selectedId, controlsRef }) {
       lookTarget = { x: tx, y: ty, z: tz }
     }
 
-    // Während der Fahrt Controls deaktivieren, damit nichts ruckelt.
     if (controls) controls.enabled = false
 
     const tl = gsap.timeline({
@@ -44,13 +58,7 @@ export default function CameraRig({ selectedId, controlsRef }) {
 
     tl.to(
       camera.position,
-      {
-        x: camPos.x,
-        y: camPos.y,
-        z: camPos.z,
-        duration: 1.4,
-        ease: 'power3.inOut',
-      },
+      { ...camPos, duration: 1.5, ease: 'power3.inOut' },
       0,
     )
 
@@ -58,10 +66,8 @@ export default function CameraRig({ selectedId, controlsRef }) {
       tl.to(
         controls.target,
         {
-          x: lookTarget.x,
-          y: lookTarget.y,
-          z: lookTarget.z,
-          duration: 1.4,
+          ...lookTarget,
+          duration: 1.5,
           ease: 'power3.inOut',
           onUpdate: () => controls.update(),
         },
@@ -72,7 +78,7 @@ export default function CameraRig({ selectedId, controlsRef }) {
     return () => {
       tl.kill()
     }
-  }, [selectedId, camera, controlsRef])
+  }, [selectedId, camera, controlsRef, positionsRef])
 
   return null
 }

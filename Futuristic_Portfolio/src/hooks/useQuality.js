@@ -35,15 +35,17 @@ export function useQuality() {
 const desktop = {
   isMobile: false,
   dpr: [1, 2], // Retina erlaubt
-  sparkles: 120, // Partikelanzahl
-  transmission: true, // teures Frosted-Glass aktiv
-  samples: 6,
+  stars: 9000, // Anzahl Hintergrundsterne
+  bloom: true, // Postprocessing-Glühen aktiv
+  planetSegments: 48, // Kugel-Auflösung der Planeten
+  orbitRings: true, // Umlaufbahn-Linien sichtbar
 }
 
 const mobile = {
   isMobile: true,
   dpr: [1, 1.5],
-  sparkles: 40,
-  transmission: false, // fällt auf günstigeres Material zurück
-  samples: 2,
+  stars: 3000,
+  bloom: false, // teures Postprocessing aus
+  planetSegments: 24,
+  orbitRings: true,
 }
