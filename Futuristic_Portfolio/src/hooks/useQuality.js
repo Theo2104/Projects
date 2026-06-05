@@ -34,8 +34,8 @@ export function useQuality() {
 // Qualitätsprofile
 const desktop = {
   isMobile: false,
-  dpr: [1, 2], // Retina erlaubt
-  stars: 9000, // Anzahl Hintergrundsterne
+  dpr: [1, 1.5], // hartes Limit gegen Fill-Rate-Last bei High-DPI
+  stars: 5000, // Anzahl Hintergrundsterne
   bloom: true, // Postprocessing-Glühen aktiv
   planetSegments: 48, // Kugel-Auflösung der Planeten
   orbitRings: true, // Umlaufbahn-Linien sichtbar

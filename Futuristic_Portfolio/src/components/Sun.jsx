@@ -14,8 +14,9 @@ export default function Sun() {
   const coreRef = useRef()
   const haloRef = useRef()
 
-  const sunMap = useTexture(SUN.texture)
-  sunMap.colorSpace = THREE.SRGBColorSpace
+  const sunMap = useTexture(SUN.texture, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace
+  })
 
   useFrame((state) => {
     const pulse = 1 + Math.sin(state.clock.elapsedTime * 1.5) * 0.03

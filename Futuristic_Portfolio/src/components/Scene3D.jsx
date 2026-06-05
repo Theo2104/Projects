@@ -1,6 +1,10 @@
-import { Suspense, useRef } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
+import {
+  OrbitControls,
+  AdaptiveEvents,
+  PerformanceMonitor,
+} from '@react-three/drei'
 import { HOME_CAMERA } from '../data/projects'
 import { useQuality } from '../hooks/useQuality'
 import Starfield from './Starfield'
@@ -14,8 +18,12 @@ import Loader from './Loader'
 // ------------------------------------------------------------------
 //  Begehbares Sonnensystem (CLAUDE.md, Abschnitt 3.A).
 //  Die Kamera sitzt mitten im System; OrbitControls (Ziel = Ursprung)
-//  erlauben freies 360°-Umsehen mit begrenztem Zoom. Bündelt Sterne,
-//  Sonne, Planeten, Umlaufbahnen, Kamera-Fahrten und Bloom.
+//  erlauben freies 360°-Umsehen mit begrenztem Zoom.
+//
+//  Performance: Der teuerste Faktor ist die Pixelmenge (Full-Screen ×
+//  devicePixelRatio) in Kombination mit dem Bloom-Pass. Der
+//  PerformanceMonitor misst die reale FPS und senkt dynamisch die
+//  Auflösung bzw. schaltet Bloom ab, wenn das Gerät nicht mitkommt.
 // ------------------------------------------------------------------
 export default function Scene3D({ projects, selectedId, onSelect }) {
   const controlsRef = useRef()
@@ -23,14 +31,25 @@ export default function Scene3D({ projects, selectedId, onSelect }) {
   const positionsRef = useRef({})
   const quality = useQuality()
 
+  const maxDpr = quality.dpr[1]
+  // Einmaliges Herunterschalten bei dauerhaft niedriger FPS (kein
+  // ständiges Nachregeln → kein Re-Render-Thrashing).
+  const [degraded, setDegraded] = useState(false)
+  const dpr = degraded ? 1 : maxDpr
+  const bloomOn = quality.bloom && !degraded
+
   return (
     <Canvas
       className="absolute inset-0"
-      dpr={quality.dpr}
+      dpr={dpr}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       camera={{ position: HOME_CAMERA.position, fov: 50, near: 0.1, far: 200 }}
       onPointerMissed={() => onSelect(null)}
     >
+      {/* Bei dauerhaft niedriger FPS einmalig auf dpr 1 + Bloom aus
+          schalten (rettet schwache GPUs / High-DPI-Displays). */}
+      <PerformanceMonitor flipflops={3} onDecline={() => setDegraded(true)} />
+
       <color attach="background" args={['#05060a']} />
 
       {/* Grundhelligkeit: hebt die Texturen auch auf den Nachtseiten an,
@@ -84,10 +103,9 @@ export default function Scene3D({ projects, selectedId, onSelect }) {
         target={HOME_CAMERA.target}
       />
 
-      {/* Weltraum-Glühen (auf Mobil deaktiviert) */}
-      <Effects enabled={quality.bloom} />
+      {/* Weltraum-Glühen (dynamisch abschaltbar bei schwacher Hardware) */}
+      <Effects enabled={bloomOn} />
 
-      <AdaptiveDpr pixelated />
       <AdaptiveEvents />
     </Canvas>
   )

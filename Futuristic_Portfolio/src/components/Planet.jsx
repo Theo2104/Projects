@@ -3,6 +3,14 @@ import { useFrame } from '@react-three/fiber'
 import { Html, useTexture, useGLTF } from '@react-three/drei'
 import gsap from 'gsap'
 import * as THREE from 'three'
+import { META } from '../data/projectMeta'
+import { SUN } from '../data/projects'
+
+// Alle bekannten Texturen vorab laden, damit useTexture zur Render-Zeit
+// nur den Cache trifft (vermeidet das setState-in-render des Ladebalkens).
+;[SUN.texture, ...Object.values(META).map((m) => m.texture)]
+  .filter(Boolean)
+  .forEach((url) => useTexture.preload(url))
 
 // ------------------------------------------------------------------
 //  Ein Planet = ein Projekt (CLAUDE.md, Abschnitt 3.C).
@@ -164,9 +172,10 @@ function PlanetMaterial({ project, matRef }) {
 }
 
 function TexturedMaterial({ project, matRef }) {
-  const map = useTexture(project.texture)
-  // Farbtextur im sRGB-Farbraum interpretieren (sonst wirkt sie flau/dunkel).
-  map.colorSpace = THREE.SRGBColorSpace
+  // Farbraum im Lade-Callback setzen (kein Seiteneffekt in der Render-Phase).
+  const map = useTexture(project.texture, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace
+  })
   return (
     <meshStandardMaterial
       ref={matRef}
