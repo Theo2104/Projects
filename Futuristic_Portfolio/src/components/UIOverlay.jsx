@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useGitHubStats, timeAgo } from '../hooks/useGitHubStats'
+import { useProjectDetails } from '../hooks/useProjectDetails'
 
 // ------------------------------------------------------------------
 //  HTML-Overlay über der Canvas. Enthält:
@@ -142,13 +142,13 @@ export default function UIOverlay({
 }
 
 // ------------------------------------------------------------------
-//  Info-Karte eines Projekts inkl. Live-GitHub-Daten und Links.
-//  Eigene Komponente, damit der GitHub-Hook nur lebt, solange eine
-//  Karte sichtbar ist.
+//  Info-Karte eines Projekts inkl. Live-Daten (letzter Commit, ggf.
+//  README-Beschreibung) und Links. Eigene Komponente, damit der
+//  Daten-Hook nur lebt, solange eine Karte sichtbar ist.
 // ------------------------------------------------------------------
 function ProjectCard({ project, onSelect }) {
-  const { data, state } = useGitHubStats(project.repo)
-  const codeUrl = project.repo ? `https://github.com/${project.repo}` : null
+  const { description, updatedAtLabel, codeUrl, state } =
+    useProjectDetails(project)
 
   return (
     <article
@@ -172,35 +172,17 @@ function ProjectCard({ project, onSelect }) {
         {project.name}
       </h2>
       <p className="mb-5 text-sm leading-relaxed text-white/60">
-        {project.description}
+        {description ||
+          (state === 'loading'
+            ? 'Beschreibung wird geladen …'
+            : 'Ein Projekt aus meinem Repository.')}
       </p>
 
-      {/* Live-GitHub-Daten */}
-      {project.repo && (
-        <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/55">
-          {state === 'loading' && (
-            <span className="text-white/40">GitHub-Daten werden geladen …</span>
-          )}
-          {state === 'error' && (
-            <span className="text-white/30">GitHub aktuell nicht erreichbar</span>
-          )}
-          {state === 'done' && data && (
-            <>
-              <span className="flex items-center gap-1">★ {data.stars}</span>
-              {data.language && (
-                <span className="flex items-center gap-1.5">
-                  <span
-                    className="h-2 w-2 rounded-full bg-cyan-400"
-                    aria-hidden
-                  />
-                  {data.language}
-                </span>
-              )}
-              {data.pushedAt && (
-                <span>Aktualisiert {timeAgo(data.pushedAt)}</span>
-              )}
-            </>
-          )}
+      {/* Live-Daten: letzter Commit, der diesen Ordner betraf */}
+      {updatedAtLabel && (
+        <div className="mb-5 flex items-center gap-1.5 text-xs text-white/50">
+          <span aria-hidden>↻</span>
+          Aktualisiert {updatedAtLabel}
         </div>
       )}
 

@@ -1,11 +1,9 @@
-import { projects } from '../data/projects'
-
 // ------------------------------------------------------------------
 //  Reiner HTML/CSS-Fallback, falls der Browser kein WebGL unterstützt
-//  (CLAUDE.md, Abschnitt 4.4). Zeigt dieselben Projekte als statische,
-//  futuristisch gestaltete Karten.
+//  (CLAUDE.md, Abschnitt 4.4). Zeigt dieselben (dynamisch geladenen)
+//  Projekte als statische, futuristisch gestaltete Karten.
 // ------------------------------------------------------------------
-export default function WebGLFallback() {
+export default function WebGLFallback({ projects = [] }) {
   return (
     <div className="bg-stage min-h-screen w-full overflow-auto p-6 md:p-12">
       <header className="mb-12">

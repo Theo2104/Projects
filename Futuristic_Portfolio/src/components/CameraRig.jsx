@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
 import gsap from 'gsap'
-import { projects, HOME_CAMERA } from '../data/projects'
+import { HOME_CAMERA } from '../data/projects'
 
 // ------------------------------------------------------------------
 //  Fliegt die Kamera per GSAP zum gewählten Planeten (CLAUDE.md 3.F).
@@ -10,7 +10,12 @@ import { projects, HOME_CAMERA } from '../data/projects'
 //  Die Kamera positioniert sich radial außerhalb des Planeten und
 //  blickt nach innen (Planet vor der leuchtenden Sonne).
 // ------------------------------------------------------------------
-export default function CameraRig({ selectedId, controlsRef, positionsRef }) {
+export default function CameraRig({
+  projects,
+  selectedId,
+  controlsRef,
+  positionsRef,
+}) {
   const { camera } = useThree()
 
   useEffect(() => {
@@ -82,7 +87,7 @@ export default function CameraRig({ selectedId, controlsRef, positionsRef }) {
     return () => {
       tl.kill()
     }
-  }, [selectedId, camera, controlsRef, positionsRef])
+  }, [projects, selectedId, camera, controlsRef, positionsRef])
 
   return null
 }

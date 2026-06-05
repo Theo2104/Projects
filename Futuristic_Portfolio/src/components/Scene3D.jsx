@@ -1,7 +1,7 @@
 import { Suspense, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
-import { projects, HOME_CAMERA } from '../data/projects'
+import { HOME_CAMERA } from '../data/projects'
 import { useQuality } from '../hooks/useQuality'
 import Starfield from './Starfield'
 import Sun from './Sun'
@@ -17,7 +17,7 @@ import Loader from './Loader'
 //  erlauben freies 360°-Umsehen mit begrenztem Zoom. Bündelt Sterne,
 //  Sonne, Planeten, Umlaufbahnen, Kamera-Fahrten und Bloom.
 // ------------------------------------------------------------------
-export default function Scene3D({ selectedId, onSelect }) {
+export default function Scene3D({ projects, selectedId, onSelect }) {
   const controlsRef = useRef()
   // Geteilte Live-Positionen der Planeten (für das CameraRig).
   const positionsRef = useRef({})
@@ -64,6 +64,7 @@ export default function Scene3D({ selectedId, onSelect }) {
 
       {/* Kamera-Fahrten bei Auswahl */}
       <CameraRig
+        projects={projects}
         selectedId={selectedId}
         controlsRef={controlsRef}
         positionsRef={positionsRef}

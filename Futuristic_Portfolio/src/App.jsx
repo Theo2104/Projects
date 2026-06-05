@@ -4,20 +4,21 @@ import UIOverlay from './components/UIOverlay'
 import WebGLFallback from './components/WebGLFallback'
 import { isWebGLAvailable } from './utils/webgl'
 import { getParams } from './utils/params'
-import { projects } from './data/projects'
+import { useProjects } from './hooks/useProjects'
 
 // Verweildauer pro Station der geführten Tour (inkl. ~1,5 s Kamera-Flug).
 const TOUR_DWELL = 4800
 
 // ------------------------------------------------------------------
-//  Einstiegspunkt. Hält die Auswahl (selectedId) als Single Source of
-//  Truth und orchestriert die geführte Tour. Personalisierung über
-//  URL-Parameter (?for=…&highlight=…&tour=1) ordnet Projekte um und
-//  startet die Tour optional automatisch.
+//  Einstiegspunkt. Lädt die Projekte dynamisch aus dem Repo, hält die
+//  Auswahl (selectedId) als Single Source of Truth und orchestriert die
+//  geführte Tour. Personalisierung über URL-Parameter
+//  (?for=…&highlight=…&tour=1) ordnet Projekte um und startet die Tour.
 // ------------------------------------------------------------------
 export default function App() {
   const webgl = useMemo(() => isWebGLAvailable(), [])
   const params = useMemo(() => getParams(), [])
+  const { projects, state: projectsState } = useProjects()
 
   const [selectedId, setSelectedId] = useState(null)
   const [touring, setTouring] = useState(false)
@@ -31,7 +32,7 @@ export default function App() {
       .filter(Boolean)
     const rest = projects.filter((p) => !params.highlight.includes(p.id))
     return [...hi, ...rest]
-  }, [params.highlight])
+  }, [params.highlight, projects])
 
   // Nutzer-Auswahl (Klick) beendet eine laufende Tour.
   const handleSelect = (id) => {
@@ -53,7 +54,7 @@ export default function App() {
   useEffect(() => {
     if (!touring) return
     if (step >= orderedProjects.length) {
-      setSelectedId(null) // zurück zur Übersicht
+      setSelectedId(null)
       const t = setTimeout(() => setTouring(false), 1800)
       return () => clearTimeout(t)
     }
@@ -62,16 +63,12 @@ export default function App() {
     return () => clearTimeout(t)
   }, [touring, step, orderedProjects])
 
-  // Auto-Start via ?tour=1 (z. B. in personalisierten Bewerbungs-Links),
-  // außer der Nutzer bevorzugt reduzierte Bewegung.
+  // Auto-Start via ?tour=1, sobald die Projekte geladen sind.
   const autoStarted = useRef(false)
   useEffect(() => {
-    if (!webgl || !params.autoplay) return
+    if (!webgl || !params.autoplay || !orderedProjects.length) return
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduce) return
-    // Guard im Timer (nicht davor), damit der StrictMode-Doppel-Mount
-    // den Start nicht wegräumt: der erste Timer wird beim Cleanup
-    // gelöscht, der zweite startet die Tour einmalig.
     const t = setTimeout(() => {
       if (autoStarted.current) return
       autoStarted.current = true
@@ -79,15 +76,24 @@ export default function App() {
     }, 1600)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [webgl, params.autoplay])
+  }, [webgl, params.autoplay, orderedProjects.length])
 
   if (!webgl) {
-    return <WebGLFallback />
+    return <WebGLFallback projects={projects} />
+  }
+
+  // Erstladebildschirm, bis die Projektliste steht.
+  if (!projects.length && projectsState === 'loading') {
+    return <BootScreen />
   }
 
   return (
     <main className="bg-stage relative h-screen w-screen overflow-hidden">
-      <Scene3D selectedId={selectedId} onSelect={handleSelect} />
+      <Scene3D
+        projects={projects}
+        selectedId={selectedId}
+        onSelect={handleSelect}
+      />
       <UIOverlay
         selectedId={selectedId}
         onSelect={handleSelect}
@@ -102,6 +108,18 @@ export default function App() {
         onStartTour={startTour}
         onStopTour={stopTour}
       />
+    </main>
+  )
+}
+
+// Schlichter Ladebildschirm, während die Repo-Projekte abgerufen werden.
+function BootScreen() {
+  return (
+    <main className="bg-stage flex h-screen w-screen flex-col items-center justify-center gap-4">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-cyan-400" />
+      <p className="text-xs tracking-[0.3em] text-cyan-300/70 uppercase">
+        System wird kartiert …
+      </p>
     </main>
   )
 }
