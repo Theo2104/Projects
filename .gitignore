@@ -1,3 +1,47 @@
 
 # Eigenständiges Repo (separat auf GitHub: Theo2104/agentic-audit)
 agentic-wcag-audit/
+
+# --- Secrets / Zugangsdaten ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*secret*
+*credential*
+id_rsa
+id_dsa
+
+# --- Python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# --- Node / Build ---
+node_modules/
+dist/
+dist-ssr/
+build/
+*.local
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Editor / OS ---
+.DS_Store
+Thumbs.db
+.idea/
+*.suo
+*.sw?
